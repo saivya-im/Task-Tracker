@@ -368,6 +368,14 @@ const SB={
   },
   async patch(id,data){
     return fetch(this.url+'/rest/v1/tasks?id=eq.'+id,{method:'PATCH',headers:this.hdrs,body:JSON.stringify(data)});
+  },
+  async getBugCounts(){
+    const r=await fetch(this.url+'/rest/v1/bug_counts?select=*',{headers:this.hdrs});
+    if(!r.ok)return[];
+    return r.json();
+  },
+  async upsertBugCount(data){
+    return fetch(this.url+'/rest/v1/bug_counts',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(data)});
   }
 };
 
@@ -392,7 +400,7 @@ const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Paymen
 const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
 
 // ── STATE ─────────────────────────────────────────────────
-const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],refreshTimer:null};
+const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],bugCounts:{},refreshTimer:null};
 
 // ── DB (Supabase-backed, in-memory cache) ─────────────────
 const db={
@@ -401,9 +409,10 @@ const db={
   async init(){
     showLoading('Loading tasks…');
     try{
-      const data=await SB.get();
+      const [data,counts]=await Promise.all([SB.get(),SB.getBugCounts()]);
       S.tasks=Array.isArray(data)?data:[];
       if(S.tasks.length===0){await seed();}
+      if(Array.isArray(counts)){counts.forEach(c=>{S.bugCounts[c.dev_id]=c;});}
     }catch(e){
       console.error(e);
       toast('⚠️ Could not load tasks. Check Supabase config.');
@@ -746,105 +755,90 @@ function markBlocked(id){
 // ── BUG SUMMARY ───────────────────────────────────────────
 function renderBugSummary(){
   const r=S.user.role;
-  const canEdit=r==='scrum_master'||r==='developer';
-  const allBugs=db.tasks().filter(t=>t.type==='bug');
-  // For developer: show only own bugs; for SM/manager: show all devs
+  const canEdit=r==='scrum_master'||r==='developer'||r==='manager';
   const targetDevs=r==='developer'?devs().filter(d=>d.id===S.user.id):devs();
-  const BUG_STATES=[
-    {key:'open',      label:'Open',       color:'#3b82f6', bg:'#dbeafe'},
-    {key:'in_progress',label:'In Progress',color:'#f59e0b',bg:'#fef3c7'},
-    {key:'blocked',   label:'Blocked',    color:'#ef4444', bg:'#fee2e2'},
-    {key:'resolved',  label:'Resolved',   color:'#22c55e', bg:'#dcfce7'},
-    {key:'closed',    label:'Closed',     color:'#94a3b8', bg:'#f1f5f9'},
-  ];
-  // Map our statuses: todo→open, done→resolved; resolved/closed are bug-specific
-  function bugState(t){
-    if(t.bug_state)return t.bug_state;
-    if(t.status==='done')return'resolved';
-    if(t.status==='blocked')return'blocked';
-    if(t.status==='in_progress')return'in_progress';
-    return'open';
-  }
-  const totalBugs=allBugs.length;
-  const byState=s=>allBugs.filter(t=>bugState(t)===s);
+  // Totals across all devs
+  let gTotal=0,gResolved=0,gClosed=0;
+  targetDevs.forEach(dev=>{
+    const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
+    gTotal+=bc.total;gResolved+=bc.resolved;gClosed+=bc.closed;
+  });
+  const gRemaining=Math.max(0,gTotal-gResolved);
   document.getElementById('content').innerHTML=`
     <div class="stats-row">
-      ${BUG_STATES.map(s=>`
-        <div class="stat-card" style="border-left:4px solid ${s.color}">
-          <h4>${s.label}</h4>
-          <div class="stat-num" style="color:${s.color}">${byState(s.key).length}</div>
-          <div class="stat-sub">of ${totalBugs} total</div>
-        </div>`).join('')}
+      <div class="stat-card" style="border-left:4px solid #3b82f6">
+        <h4>Total Bugs</h4><div class="stat-num" style="color:#3b82f6">${gTotal}</div>
+        <div class="stat-sub">across team</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #22c55e">
+        <h4>Resolved by Dev</h4><div class="stat-num" style="color:#22c55e">${gResolved}</div>
+        <div class="stat-sub">deployed to live</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #0891b2">
+        <h4>Closed by Tester</h4><div class="stat-num" style="color:#0891b2">${gClosed}</div>
+        <div class="stat-sub">verified &amp; closed</div>
+      </div>
+      <div class="stat-card" style="border-left:4px solid #ef4444">
+        <h4>Remaining</h4><div class="stat-num" style="color:#ef4444">${gRemaining}</div>
+        <div class="stat-sub">with dev to fix</div>
+      </div>
     </div>
-    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:14px;">Per Developer</div>
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:14px;">Per Developer — click fields to update</div>
     ${targetDevs.map(dev=>{
-      const devBugs=allBugs.filter(t=>t.assignee_id===dev.id);
-      if(!devBugs.length)return`
-        <div style="background:#fff;border-radius:10px;padding:14px 18px;border:1.5px solid var(--border);margin-bottom:10px;display:flex;align-items:center;gap:12px;">
-          <div class="uav" style="width:32px;height:32px;font-size:12px;background:${dev.color}">${av(dev)}</div>
-          <div style="font-size:13px;font-weight:700;">${dev.name}</div>
-          <div style="font-size:12px;color:var(--text2);margin-left:4px;">No bugs assigned 🎉</div>
-        </div>`;
-      return`
-        <div style="background:#fff;border-radius:12px;padding:16px 20px;border:1.5px solid var(--border);margin-bottom:14px;">
-          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-            <div class="uav" style="width:34px;height:34px;font-size:13px;background:${dev.color}">${av(dev)}</div>
-            <div>
-              <div style="font-size:14px;font-weight:800;">${dev.name}</div>
-              <div style="font-size:11px;color:var(--text2);">${devBugs.length} bug${devBugs.length>1?'s':''} assigned</div>
-            </div>
-            <div style="margin-left:auto;display:flex;gap:6px;">
-              ${BUG_STATES.map(s=>{
-                const cnt=devBugs.filter(t=>bugState(t)===s.key).length;
-                return cnt?`<span style="background:${s.bg};color:${s.color};padding:2px 8px;border-radius:12px;font-size:11px;font-weight:800;">${s.label}: ${cnt}</span>`:'';
-              }).join('')}
+      const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
+      const rem=Math.max(0,bc.total-bc.resolved);
+      const pct=bc.total?Math.round(bc.resolved/bc.total*100):0;
+      const pcolor=pct===100?'#22c55e':pct>=60?'#3b82f6':'#f59e0b';
+      const devCanEdit=canEdit||(r==='developer'&&dev.id===S.user.id);
+      return`<div style="background:#fff;border-radius:12px;padding:16px 20px;border:1.5px solid var(--border);margin-bottom:12px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div class="uav" style="width:36px;height:36px;font-size:13px;background:${dev.color}">${av(dev)}</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:800;">${dev.name}</div>
+            <div style="height:5px;background:#e2e8f0;border-radius:3px;margin-top:6px;overflow:hidden;">
+              <div style="height:100%;width:${pct}%;background:${pcolor};border-radius:3px;transition:width .3s;"></div>
             </div>
           </div>
-          <table style="width:100%;border-collapse:collapse;">
-            <thead>
-              <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);">
-                <th style="text-align:left;padding:5px 8px;font-weight:800;">Bug</th>
-                <th style="text-align:left;padding:5px 8px;font-weight:800;">Module</th>
-                <th style="text-align:left;padding:5px 8px;font-weight:800;">Priority</th>
-                <th style="text-align:left;padding:5px 8px;font-weight:800;">EDD</th>
-                <th style="text-align:left;padding:5px 8px;font-weight:800;">State</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${devBugs.map(t=>{
-                const bs=bugState(t);
-                const st=BUG_STATES.find(s=>s.key===bs)||BUG_STATES[0];
-                const edd=t.edd_sm||t.edd;const br=isBreached(t);
-                return`<tr style="border-top:1px solid var(--border);font-size:12px;" onclick="openDrawer('${t.id}')" title="Click to view details" class="bug-row">
-                  <td style="padding:8px 8px;font-weight:600;cursor:pointer;">🐛 ${t.title}</td>
-                  <td style="padding:8px 8px;color:var(--text2);">${t.module||'—'}</td>
-                  <td style="padding:8px 8px;"><span class="chip ch-${t.priority}">${t.priority}</span></td>
-                  <td style="padding:8px 8px;${br?'color:var(--blocked);font-weight:700;':''}">${fdate(edd)||'—'}${br?' ⚠️':''}</td>
-                  <td style="padding:8px 8px;" onclick="event.stopPropagation()">
-                    ${canEdit||dev.id===S.user.id?`
-                    <select onchange="updateBugState('${t.id}',this.value)" style="border:1.5px solid ${st.color};border-radius:7px;padding:4px 8px;font-size:11px;font-weight:700;color:${st.color};background:${st.bg};outline:none;cursor:pointer;">
-                      ${BUG_STATES.map(s=>`<option value="${s.key}" ${bs===s.key?'selected':''} style="color:var(--text);background:#fff;">${s.label}</option>`).join('')}
-                    </select>`
-                    :`<span style="background:${st.bg};color:${st.color};padding:3px 8px;border-radius:12px;font-size:11px;font-weight:800;">${st.label}</span>`}
-                  </td>
-                </tr>`;
-              }).join('')}
-            </tbody>
-          </table>
-        </div>`;
+          <span style="font-size:12px;color:var(--text2);white-space:nowrap;">${pct}% resolved</span>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:end;">
+          <div>
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Total bugs</div>
+            ${devCanEdit?`<input type="number" min="0" value="${bc.total}" onchange="saveBugCount('${dev.id}','total',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:18px;font-weight:800;text-align:center;color:#3b82f6;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'">`
+            :`<div style="font-size:18px;font-weight:800;color:#3b82f6;padding:7px 0;">${bc.total}</div>`}
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Resolved by dev</div>
+            ${devCanEdit?`<input type="number" min="0" value="${bc.resolved}" onchange="saveBugCount('${dev.id}','resolved',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:18px;font-weight:800;text-align:center;color:#22c55e;outline:none;" onfocus="this.style.borderColor='#22c55e'" onblur="this.style.borderColor='var(--border)'">`
+            :`<div style="font-size:18px;font-weight:800;color:#22c55e;padding:7px 0;">${bc.resolved}</div>`}
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Closed by tester</div>
+            ${devCanEdit?`<input type="number" min="0" value="${bc.closed}" onchange="saveBugCount('${dev.id}','closed',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:18px;font-weight:800;text-align:center;color:#0891b2;outline:none;" onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='var(--border)'">`
+            :`<div style="font-size:18px;font-weight:800;color:#0891b2;padding:7px 0;">${bc.closed}</div>`}
+          </div>
+          <div>
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Remaining</div>
+            <div id="rem-${dev.id}" style="font-size:18px;font-weight:800;padding:7px 0;color:${rem>0?'#ef4444':'#22c55e'};">${rem}</div>
+          </div>
+        </div>
+        ${bc.notes!==undefined?`<div style="margin-top:10px;"><input type="text" placeholder="Add notes…" value="${bc.notes||''}" onchange="saveBugCount('${dev.id}','notes',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"></div>`:''}
+      </div>`;
     }).join('')}`;
-  // Add hover style for bug rows
-  const style=document.createElement('style');
-  style.textContent='.bug-row:hover td{background:#f8fafc;}';
-  document.head.appendChild(style);
 }
 
-function updateBugState(taskId,bugState){
-  // Map bug state back to main status where applicable
-  const statusMap={open:'todo',in_progress:'in_progress',blocked:'blocked',resolved:'done',closed:'done'};
-  db.update(taskId,{bug_state:bugState,status:statusMap[bugState]||'todo'});
-  toast('🐛 Bug state updated');
-  renderBugSummary();
+function saveBugCount(devId,field,value){
+  const cur=S.bugCounts[devId]||{dev_id:devId,total:0,resolved:0,closed:0,notes:''};
+  cur[field]=field==='notes'?value:Math.max(0,parseInt(value)||0);
+  cur.dev_id=devId;
+  cur.updated_at=new Date().toISOString();
+  S.bugCounts[devId]=cur;
+  // Update remaining display live
+  const rem=Math.max(0,cur.total-cur.resolved);
+  const el=document.getElementById('rem-'+devId);
+  if(el){el.textContent=rem;el.style.color=rem>0?'#ef4444':'#22c55e';}
+  SB.upsertBugCount(cur);
+  toast('🐛 Saved');
 }
 
 // ── SPRINT SUMMARY ────────────────────────────────────────
@@ -1309,20 +1303,3 @@ async function seed(){
     await SB.post(prepared);
     const data=await SB.get();
     S.tasks=Array.isArray(data)?data:prepared;
-  }catch(e){S.tasks=prepared;}
-  hideLoading();
-}
-
-// ── TOAST ─────────────────────────────────────────────────
-function toast(msg){
-  const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';
-  setTimeout(()=>t.style.display='none',2500);
-}
-
-// ── BOOT ──────────────────────────────────────────────────
-(function(){
-  document.getElementById('l-email').focus();
-})();
-</script>
-</body>
-</html>
