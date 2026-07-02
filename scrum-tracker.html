@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>ScrumBoard — Daily Standup Tracker</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+:root{
+  --blue:#2563eb;--purple:#7c3aed;--teal:#0d9488;
+  --bg:#f1f5f9;--sidebar:#1e293b;--card:#fff;
+  --border:#e2e8f0;--text:#0f172a;--text2:#64748b;
+  --done:#22c55e;--blocked:#ef4444;--inprog:#3b82f6;--todo:#94a3b8;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--text);height:100vh;overflow:hidden;}
+
+/* LOGIN */
+#login-page{display:flex;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#1e293b,#334155);}
+.login-card{background:#fff;border-radius:16px;padding:40px;width:390px;box-shadow:0 24px 64px rgba(0,0,0,.3);}
+.login-logo{display:flex;align-items:center;gap:12px;margin-bottom:28px;}
+.login-logo-icon{width:44px;height:44px;background:var(--blue);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;}
+.login-logo h1{font-size:20px;font-weight:800;color:var(--text);}
+.login-logo p{font-size:11px;color:var(--text2);margin-top:1px;}
+.demo-hint{margin-top:18px;padding-top:16px;border-top:1px solid var(--border);font-size:11px;color:var(--text2);}
+.demo-hint strong{display:block;margin-bottom:6px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+
+/* FORM */
+.fg{margin-bottom:14px;}
+.fg label{display:block;font-size:12px;font-weight:700;color:var(--text);margin-bottom:5px;}
+.fg input,.fg select,.fg textarea{width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;background:#fff;transition:border-color .2s;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--blue);}
+.fg textarea{resize:vertical;}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.err{color:var(--blocked);font-size:12px;margin-top:6px;display:none;}
+.btn{padding:9px 16px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s;display:inline-flex;align-items:center;gap:5px;}
+.btn-primary{background:var(--blue);color:#fff;}
+.btn-primary:hover{background:#1d4ed8;}
+.btn-secondary{background:var(--bg);color:var(--text);border:1.5px solid var(--border);}
+.btn-secondary:hover{background:var(--border);}
+.btn-sm{padding:5px 11px;font-size:11px;}
+.btn-full{width:100%;justify-content:center;}
+
+/* LOADING */
+#loading{display:none;position:fixed;inset:0;background:rgba(15,23,42,.7);z-index:9000;align-items:center;justify-content:center;flex-direction:column;gap:14px;}
+.spin{width:40px;height:40px;border:3px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+#loading p{color:#fff;font-size:14px;font-weight:600;}
+
+/* SETUP SCREEN */
+#setup-page{display:none;align-items:center;justify-content:center;height:100vh;background:linear-gradient(135deg,#1e293b,#334155);}
+.setup-card{background:#fff;border-radius:16px;padding:36px;width:500px;box-shadow:0 24px 64px rgba(0,0,0,.3);}
+.setup-card h2{font-size:18px;font-weight:800;margin-bottom:6px;}
+.setup-card p{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6;}
+.setup-step{background:#f8fafc;border-radius:10px;padding:14px 16px;margin-bottom:12px;border:1px solid var(--border);}
+.setup-step .sn{width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;margin-right:8px;flex-shrink:0;}
+.setup-step-title{font-size:13px;font-weight:700;margin-bottom:4px;display:flex;align-items:center;}
+.setup-step p{font-size:12px;color:var(--text2);margin:0;}
+.setup-step code{background:#e2e8f0;padding:1px 5px;border-radius:4px;font-size:11px;}
+.sql-box{background:#1e293b;color:#e2e8f0;border-radius:8px;padding:12px;font-size:11px;font-family:monospace;line-height:1.6;margin-top:8px;overflow-x:auto;}
+
+/* APP */
+#app{display:none;height:100vh;flex-direction:row;}
+.sidebar{width:220px;background:var(--sidebar);display:flex;flex-direction:column;flex-shrink:0;}
+.sidebar-logo{padding:18px 16px;border-bottom:1px solid rgba(255,255,255,.08);}
+.sidebar-logo h2{color:#fff;font-size:15px;font-weight:800;}
+.sidebar-logo p{color:rgba(255,255,255,.35);font-size:11px;margin-top:2px;}
+.sidebar-nav{flex:1;padding:10px 8px;overflow-y:auto;}
+.nav-item{display:flex;align-items:center;gap:9px;padding:9px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,.55);font-size:13px;font-weight:500;margin-bottom:2px;transition:all .15s;}
+.nav-item:hover{background:rgba(255,255,255,.08);color:#fff;}
+.nav-item.active{background:var(--blue);color:#fff;}
+.nav-icon{font-size:15px;width:20px;text-align:center;}
+.sidebar-user{padding:14px;border-top:1px solid rgba(255,255,255,.08);}
+.user-info{display:flex;align-items:center;gap:9px;}
+.uav{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0;}
+.user-details p{font-size:13px;font-weight:700;color:#fff;}
+.user-details span{font-size:10px;color:rgba(255,255,255,.4);text-transform:capitalize;}
+.logout-btn{margin-top:10px;width:100%;padding:7px;background:rgba(255,255,255,.07);border:none;border-radius:6px;color:rgba(255,255,255,.5);font-size:11px;cursor:pointer;}
+.logout-btn:hover{background:rgba(255,255,255,.14);color:#fff;}
+
+/* MAIN */
+.main{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+.top-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 24px;background:#fff;border-bottom:1px solid var(--border);flex-shrink:0;}
+.top-bar h2{font-size:17px;font-weight:800;}
+.top-bar-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+.top-bar-actions{display:flex;gap:7px;align-items:center;}
+.content{flex:1;overflow-y:auto;padding:22px 24px;}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#22c55e;display:inline-block;margin-right:4px;}
+.sync-dot.syncing{background:#f59e0b;animation:pulse .8s ease-in-out infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* CHIPS */
+.chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;}
+.ch-todo{background:#f1f5f9;color:#64748b;}
+.ch-in_progress{background:#dbeafe;color:#2563eb;}
+.ch-blocked{background:#fee2e2;color:#ef4444;}
+.ch-done{background:#dcfce7;color:#16a34a;}
+.ch-P1{background:#fee2e2;color:#dc2626;}
+.ch-P2{background:#fef3c7;color:#d97706;}
+.ch-P3{background:#f1f5f9;color:#64748b;}
+.ch-carried{background:#fdf4ff;color:#9333ea;}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:800;}
+.bg-grey{background:#e2e8f0;color:#64748b;}
+.bg-yellow{background:#fef3c7;color:#d97706;}
+.bg-red{background:#fee2e2;color:#dc2626;}
+.bg-orange{background:#fff7ed;color:#ea580c;}
+.bg-green{background:#dcfce7;color:#16a34a;}
+
+/* STATS */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+.stat-card{background:#fff;border-radius:10px;padding:16px;border:1.5px solid var(--border);}
+.stat-card h4{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:6px;}
+.stat-num{font-size:28px;font-weight:800;}
+.stat-sub{font-size:11px;color:var(--text2);margin-top:2px;}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:18px;align-items:center;}
+.filter-bar select,.filter-bar input[type=text]{border:1.5px solid var(--border);border-radius:8px;padding:6px 11px;font-size:12px;color:var(--text);background:#fff;outline:none;}
+.filter-bar select:focus,.filter-bar input:focus{border-color:var(--blue);}
+
+/* BOARD */
+.board{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;}
+.board-col{flex-shrink:0;width:235px;}
+.board-col-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
+.bcol-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
+.bcol-count{background:var(--border);color:var(--text2);font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;}
+
+/* TASK CARD */
+.tcard{background:#fff;border-radius:10px;padding:11px 12px;border:1.5px solid var(--border);border-left:4px solid var(--border);margin-bottom:7px;cursor:pointer;transition:box-shadow .15s;position:relative;}
+.tcard:hover{box-shadow:0 4px 18px rgba(0,0,0,.08);}
+.tcard.type-bug{border-left:4px solid #ef4444;background:#fffbfb;}
+.tcard.type-feature{border-left:4px solid #3b82f6;background:#fafcff;}
+.tcard.type-optimisation,.tcard.type-chore{border-left:4px solid #f59e0b;background:#fffdf5;}
+.tcard.type-ad-hoc{border-left:4px solid #8b5cf6;background:#fdf8ff;}
+.tcard.breached{border-left:4px solid var(--blocked)!important;outline:1.5px solid #fecaca;}
+.tcard.aging{outline:1.5px solid #fde68a;}
+.tc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:6px;}
+.tc-title{font-size:12px;font-weight:700;line-height:1.35;flex:1;padding-right:6px;color:var(--text);}
+.info-btn{background:none;border:none;cursor:pointer;color:var(--text2);font-size:14px;padding:1px 3px;border-radius:4px;flex-shrink:0;}
+.info-btn:hover{color:var(--blue);background:#f1f5f9;}
+.tc-module{font-size:10px;color:var(--text2);margin-bottom:5px;}
+.tc-module b{color:var(--blue);}
+.tc-chips{display:flex;gap:3px;flex-wrap:wrap;margin-bottom:7px;}
+.tc-footer{display:flex;align-items:center;justify-content:space-between;}
+.tc-av{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;flex-shrink:0;}
+.tc-name{font-size:10px;color:var(--text2);margin-left:4px;}
+.tc-edd{font-size:10px;color:var(--text2);}
+.tc-edd.red{color:var(--blocked);font-weight:700;}
+.tc-prog{margin-top:7px;}
+.pbar{height:4px;background:#e2e8f0;border-radius:2px;overflow:hidden;}
+.pfill{height:100%;border-radius:2px;transition:width .3s;}
+.ptext{font-size:9px;color:var(--text2);margin-top:2px;}
+.aging-flag{font-size:9px;color:#f59e0b;font-weight:700;margin-top:3px;}
+
+/* WORKLOAD */
+.wl-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:24px;}
+.wl-card{background:#fff;border-radius:10px;padding:14px;border:1.5px solid var(--border);}
+.wl-card.blocked-card{border-color:var(--blocked);}
+.wl-card.bugs-card{border-color:#f59e0b;}
+.wl-card.empty-card{border-style:dashed;border-color:#94a3b8;}
+.wl-name{font-size:13px;font-weight:700;margin-bottom:6px;}
+.wl-stats{font-size:11px;color:var(--text2);margin-bottom:7px;}
+.wl-badges{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:7px;}
+.wl-task-preview{font-size:10px;color:var(--text2);padding:3px 6px;background:#f8fafc;border-radius:4px;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* DEV VIEW */
+.dev-row{background:#fff;border-radius:10px;padding:13px 16px;border:1.5px solid var(--border);margin-bottom:8px;display:flex;align-items:center;gap:12px;}
+.dev-row.breached{border-left:4px solid var(--blocked);}
+.dr-info{flex:1;}
+.dr-title{font-size:13px;font-weight:700;margin-bottom:4px;}
+.dr-meta{display:flex;gap:7px;align-items:center;flex-wrap:wrap;font-size:11px;color:var(--text2);}
+.dr-actions{display:flex;gap:6px;align-items:center;flex-shrink:0;}
+.status-sel{border:1.5px solid var(--border);border-radius:7px;padding:5px 9px;font-size:11px;font-weight:700;cursor:pointer;outline:none;background:#fff;}
+.blocker-btn{padding:5px 10px;background:#fee2e2;color:#ef4444;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;}
+.blocker-btn:hover{background:var(--blocked);color:#fff;}
+
+/* DRAWER */
+#doverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:500;}
+#drawer{position:fixed;right:-530px;top:0;bottom:0;width:510px;background:#fff;z-index:501;transition:right .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:-8px 0 40px rgba(0,0,0,.15);}
+#drawer.open{right:0;}
+.dwr-hdr{padding:18px 22px;border-bottom:1px solid var(--border);display:flex;align-items:flex-start;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:2;}
+.dwr-title{font-size:15px;font-weight:800;flex:1;padding-right:12px;line-height:1.3;}
+.dwr-close{background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);}
+.dwr-body{padding:18px 22px;}
+.dsec{margin-bottom:22px;}
+.dsec-title{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:10px;}
+.meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.meta-item label{font-size:10px;font-weight:700;color:var(--text2);}
+.meta-item p{font-size:13px;font-weight:700;color:var(--text);margin-top:2px;}
+.edd-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap;}
+.sm-badge{font-size:9px;color:var(--purple);font-weight:800;background:#faf5ff;padding:2px 6px;border-radius:4px;border:1px solid #e9d5ff;}
+.blocker-box{padding:10px 12px;background:#fee2e2;border-radius:8px;font-size:12px;color:#dc2626;font-weight:700;margin-top:8px;}
+
+/* PROGRESS */
+.big-pbar{height:10px;background:#e2e8f0;border-radius:5px;overflow:hidden;margin:8px 0;}
+.big-pfill{height:100%;border-radius:5px;transition:width .3s;}
+.prog-manual{display:flex;align-items:center;gap:10px;margin-top:6px;}
+.prog-manual input[type=range]{flex:1;accent-color:var(--blue);}
+.prog-val{font-size:14px;font-weight:800;color:var(--blue);min-width:38px;}
+.prog-note{font-size:10px;color:var(--text2);margin-top:4px;}
+
+/* SUBTASKS */
+.st-item{display:flex;align-items:flex-start;gap:9px;padding:9px 11px;border:1.5px solid var(--border);border-radius:8px;margin-bottom:5px;}
+.st-check{width:17px;height:17px;border-radius:4px;border:2px solid var(--border);cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;font-size:10px;}
+.st-check.done{background:var(--done);border-color:var(--done);color:#fff;}
+.st-title{font-size:12px;font-weight:600;color:var(--text);}
+.st-title.done{text-decoration:line-through;color:var(--text2);}
+.st-meta{display:flex;gap:8px;margin-top:2px;font-size:10px;color:var(--text2);}
+.st-meta b{color:var(--blue);}
+
+/* COMMENTS */
+.cmt-input-row{display:flex;gap:7px;margin-bottom:10px;}
+.cmt-input-row input{flex:1;border:1.5px solid var(--border);border-radius:8px;padding:7px 11px;font-size:12px;outline:none;}
+.cmt-input-row input:focus{border-color:var(--blue);}
+.cmt-item{display:flex;gap:8px;margin-bottom:9px;}
+.cmt-av{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;}
+.cmt-name{font-size:10px;color:var(--text2);margin-bottom:2px;}
+.cmt-text{font-size:12px;color:var(--text);}
+
+/* ACTIVITY */
+.act-item{font-size:11px;color:var(--text2);padding:5px 0;border-bottom:1px solid #f8fafc;display:flex;justify-content:space-between;}
+.act-item b{color:var(--text);}
+
+/* MODAL */
+#moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;}
+#modal{background:#fff;border-radius:14px;padding:26px;width:620px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.modal-hdr h3{font-size:16px;font-weight:800;}
+.modal-close{background:none;border:none;font-size:21px;cursor:pointer;color:var(--text2);}
+.form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
+.sep{height:1px;background:var(--border);margin:16px 0;}
+
+/* STANDUP */
+#standup{display:none;position:fixed;inset:0;background:#0f172a;z-index:1000;flex-direction:column;}
+.su-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 30px;border-bottom:1px solid rgba(255,255,255,.08);}
+.su-hdr h2{color:#fff;font-size:18px;font-weight:800;}
+.su-hdr p{color:rgba(255,255,255,.4);font-size:12px;margin-top:2px;}
+.su-dots{display:flex;gap:5px;align-items:center;}
+.su-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.18);}
+.su-dot.done{background:var(--done);}
+.su-dot.cur{background:var(--blue);transform:scale(1.5);}
+.su-body{flex:1;display:flex;overflow:hidden;}
+.su-side{width:240px;background:rgba(255,255,255,.04);padding:22px;border-right:1px solid rgba(255,255,255,.07);flex-shrink:0;}
+.su-av{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;margin-bottom:10px;}
+.su-name{color:#fff;font-size:18px;font-weight:800;}
+.su-role{color:rgba(255,255,255,.4);font-size:12px;}
+.su-summary{margin-top:18px;}
+.su-summary p{color:rgba(255,255,255,.65);font-size:12px;margin-bottom:5px;}
+.su-tasks{flex:1;padding:22px;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-content:start;}
+.su-sec h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
+.su-sec.y h4{color:#22c55e;}
+.su-sec.t h4{color:#3b82f6;}
+.su-sec.b h4{color:#ef4444;}
+.su-task{background:rgba(255,255,255,.06);border-radius:8px;padding:9px 11px;margin-bottom:7px;}
+.su-task p{color:rgba(255,255,255,.85);font-size:12px;font-weight:600;}
+.su-task small{color:rgba(255,255,255,.35);font-size:10px;display:block;margin-top:2px;}
+.su-task.bl{border-left:3px solid var(--blocked);}
+.su-ftr{padding:16px 30px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;}
+.su-ftr-info{color:rgba(255,255,255,.4);font-size:12px;}
+
+/* SUMMARY */
+.summ-box{background:#f8fafc;border-radius:10px;padding:14px;font-size:12px;line-height:1.75;color:var(--text);white-space:pre-wrap;font-family:monospace;max-height:420px;overflow-y:auto;border:1px solid var(--border);}
+
+/* TOAST */
+#toast{position:fixed;bottom:22px;right:22px;background:#1e293b;color:#fff;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:700;z-index:9999;display:none;box-shadow:0 8px 24px rgba(0,0,0,.2);}
+::-webkit-scrollbar{width:5px;height:5px;}
+::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div id="toast"></div>
+
+<!-- LOADING -->
+<div id="loading" style="display:none;position:fixed;inset:0;background:rgba(15,23,42,.75);z-index:9000;align-items:center;justify-content:center;flex-direction:column;gap:14px;">
+  <div class="spin"></div>
+  <p style="color:#fff;font-size:14px;font-weight:600;" id="loading-msg">Loading…</p>
+</div>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="login-card">
+    <div class="login-logo">
+      <div class="login-logo-icon">🏃</div>
+      <div><h1>ScrumBoard</h1><p>IndiaMart Daily Standup</p></div>
+    </div>
+    <div class="fg"><label>First Name</label><input type="text" id="l-email" placeholder="Enter Name" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('l-pass').focus()"/></div>
+    <div class="fg">
+      <label>Password</label>
+      <input type="text" id="l-pass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')login()" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;background:#fff;"/>
+    </div>
+    <div class="err" id="l-err">Name or password not recognised.</div>
+    <button class="btn btn-primary btn-full" style="margin-top:6px" onclick="login()">Sign In →</button>
+    <div class="demo-hint">
+      <strong>Login with your first name</strong>
+      <span style="color:#94a3b8">Passwords shared separately · Case doesn't matter</span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="sidebar">
+    <div class="sidebar-logo"><h2>🏃 ScrumBoard</h2><p id="sprint-label"></p></div>
+    <nav class="sidebar-nav" id="snav"></nav>
+    <div class="sidebar-user">
+      <div class="user-info">
+        <div class="uav" id="s-av"></div>
+        <div class="user-details"><p id="s-name"></p><span id="s-role"></span></div>
+      </div>
+      <button class="logout-btn" onclick="logout()">Sign Out</button>
+    </div>
+  </div>
+  <div class="main">
+    <div class="top-bar">
+      <div><h2 id="pg-title"></h2><div class="top-bar-sub" id="pg-sub"></div></div>
+      <div class="top-bar-actions" id="pg-actions"></div>
+    </div>
+    <div class="content" id="content"></div>
+  </div>
+</div>
+
+<!-- STANDUP -->
+<div id="standup">
+  <div class="su-hdr">
+    <div><h2 id="su-title">Daily Standup</h2><p id="su-date"></p></div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="su-dots" id="su-dots"></div>
+      <button class="btn btn-secondary btn-sm" onclick="closeStandup()">✕ End</button>
+    </div>
+  </div>
+  <div class="su-body">
+    <div class="su-side" id="su-side"></div>
+    <div class="su-tasks" id="su-tasks"></div>
+  </div>
+  <div class="su-ftr">
+    <div class="su-ftr-info" id="su-info"></div>
+    <div style="display:flex;gap:8px;">
+      <button class="btn btn-secondary btn-sm" onclick="suPrev()">← Prev</button>
+      <button class="btn btn-primary btn-sm" id="su-next" onclick="suNext()">Next →</button>
+    </div>
+  </div>
+</div>
+
+<!-- DRAWER -->
+<div id="doverlay" onclick="closeDrawer()"></div>
+<div id="drawer"></div>
+
+<!-- MODAL -->
+<div id="moverlay" onclick="closeModal(event)"><div id="modal"></div></div>
+
+<script>
+// ── SUPABASE CONFIG ───────────────────────────────────────
+// ✏️  Fill these two values before deploying to Vercel
+const SUPABASE_URL = 'https://sfhmegtbadqpdzikwndu.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_MLDzq-tdNxrQEpOHXMwzZQ_9h9QXz4w';
+
+const SB={
+  get url(){return SUPABASE_URL;},
+  get key(){return SUPABASE_KEY;},
+  get hdrs(){return{'apikey':this.key,'Authorization':'Bearer '+this.key,'Content-Type':'application/json','Prefer':'return=representation'};},
+  async get(){
+    const r=await fetch(this.url+'/rest/v1/tasks?select=*&order=created_at.asc',{headers:this.hdrs});
+    if(!r.ok)throw new Error('Supabase fetch failed: '+r.status);
+    return r.json();
+  },
+  async post(data){
+    return fetch(this.url+'/rest/v1/tasks',{method:'POST',headers:this.hdrs,body:JSON.stringify(data)});
+  },
+  async patch(id,data){
+    return fetch(this.url+'/rest/v1/tasks?id=eq.'+id,{method:'PATCH',headers:this.hdrs,body:JSON.stringify(data)});
+  }
+};
+
+// ── USERS ─────────────────────────────────────────────────
+const USERS=[
+  {id:'u2',password:'Tarb#Scrum26',role:'manager',name:'Tarbrinder Singh',color:'#7c3aed'},
+  {id:'u3',password:'Abir#Board26',role:'manager',name:'Abir Soni',color:'#9333ea'},
+  {id:'u4',password:'Kuma#Sprint26',role:'manager',name:'Kumar Himanshu',color:'#6d28d9'},
+  {id:'u15',password:'Moha#Lead2026',role:'manager',name:'Mohak',color:'#0f766e'},
+  {id:'u5',password:'Avin#Stand26',role:'scrum_master',name:'Avinash Gummadi',color:'#1d4ed8',also_dev:true},
+  {id:'u6',password:'Saiv#Daily26',role:'scrum_master',name:'Saivya Gulati',color:'#0891b2',also_dev:true},
+  {id:'u7',password:'Shre#Code2026',role:'developer',name:'Shreenath Asati',color:'#0d9488'},
+  {id:'u8',password:'Aanc#Build26',role:'developer',name:'Aanchal Sharma',color:'#dc2626'},
+  {id:'u9',password:'Aayu#Push2026',role:'developer',name:'Aayushi Dangwal',color:'#d97706'},
+  {id:'u10',password:'Anju#Task2026',role:'developer',name:'Anjali Rana',color:'#16a34a'},
+  {id:'u11',password:'Gurt#Merge26',role:'developer',name:'Gurtej Singh Hud',color:'#9333ea'},
+  {id:'u12',password:'Hars#Pull2026',role:'developer',name:'Harshit Srivastava',color:'#b45309'},
+  {id:'u13',password:'Sank#Ship2026',role:'developer',name:'Sanket Dawar',color:'#0369a1'},
+  {id:'u14',password:'Subo#Deploy26',role:'developer',name:'Subodh Kumar Pandey',color:'#be185d'},
+];
+const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports'];
+const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
+
+// ── STATE ─────────────────────────────────────────────────
+const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],refreshTimer:null};
+
+// ── DB (Supabase-backed, in-memory cache) ─────────────────
+const db={
+  tasks(){return S.tasks;},
+
+  async init(){
+    showLoading('Loading tasks…');
+    try{
+      const data=await SB.get();
+      S.tasks=Array.isArray(data)?data:[];
+      if(S.tasks.length===0){await seed();}
+    }catch(e){
+      console.error(e);
+      toast('⚠️ Could not load tasks. Check Supabase config.');
+      S.tasks=[];
+    }
+    hideLoading();
+  },
+
+  async refresh(){
+    // Silent background refresh
+    setSyncDot('syncing');
+    try{
+      const data=await SB.get();
+      S.tasks=Array.isArray(data)?data:[];
+      render();
+      if(S.openTask) openDrawer(S.openTask);
+    }catch(e){}
+    setSyncDot('live');
+  },
+
+  createTask(t){
+    t.id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
+    t.created_at=t.updated_at=new Date().toISOString();
+    t.activity=[{uid:S.user.id,action:'Created task',at:new Date().toISOString()}];
+    t.comments=[];t.subtasks=t.subtasks||[];t.progress=0;t.is_carried=false;
+    S.tasks.push(t);
+    SB.post(t);
+    return t;
+  },
+
+  update(id,changes){
+    const idx=S.tasks.findIndex(t=>t.id===id);if(idx<0)return;
+    const old=S.tasks[idx];const acts=[];
+    if(changes.status&&changes.status!==old.status)acts.push('Status → '+slabel(changes.status));
+    if(changes.edd_sm!==undefined&&changes.edd_sm!==old.edd_sm)acts.push('EDD adjusted → '+fdate(changes.edd_sm)+' (SM)');
+    if(changes.progress!==undefined&&changes.progress!==old.progress)acts.push('Progress → '+changes.progress+'%');
+    if(changes.assignee_id&&changes.assignee_id!==old.assignee_id)acts.push('Reassigned → '+(uid(changes.assignee_id)?.name||'?'));
+    Object.assign(S.tasks[idx],changes,{updated_at:new Date().toISOString()});
+    if(acts.length) S.tasks[idx].activity=[...(S.tasks[idx].activity||[]),...acts.map(a=>({uid:S.user.id,action:a,at:new Date().toISOString()}))];
+    SB.patch(id,S.tasks[idx]);
+    return S.tasks[idx];
+  },
+
+  addComment(taskId,text){
+    const idx=S.tasks.findIndex(t=>t.id===taskId);if(idx<0)return;
+    const comments=[...(S.tasks[idx].comments||[]),{id:'c'+Date.now(),uid:S.user.id,text,at:new Date().toISOString()}];
+    S.tasks[idx].comments=comments;
+    SB.patch(taskId,{comments,updated_at:new Date().toISOString()});
+  },
+
+  updateSubtasks(taskId,subtasks){
+    const idx=S.tasks.findIndex(t=>t.id===taskId);if(idx<0)return;
+    S.tasks[idx].subtasks=subtasks;
+    S.tasks[idx].updated_at=new Date().toISOString();
+    SB.patch(taskId,{subtasks,updated_at:S.tasks[idx].updated_at});
+  }
+};
+
+// ── HELPERS ───────────────────────────────────────────────
+function uid(id){return USERS.find(u=>u.id===id);}
+function devs(){return USERS.filter(u=>u.role==='developer'||u.also_dev);}
+function av(u){return u?u.name.split(' ').map(n=>n[0]).join('').slice(0,2):'?';}
+function fdate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
+function today(){return new Date().toISOString().split('T')[0];}
+function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
+function slabel(s){return{todo:'To Do',in_progress:'In Progress',blocked:'Blocked',done:'Done'}[s]||s;}
+function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',blocked:'ch-blocked',done:'ch-done'}[s]||'ch-todo';}
+function isBreached(t){const e=t.edd_sm||t.edd;if(!e||t.status==='done')return false;return new Date(e)<new Date(today());}
+function isAging(t){if(t.status!=='in_progress')return false;return(Date.now()-new Date(t.updated_at||t.created_at))/(864e5)>=3;}
+function progColor(p){return p>=80?'#22c55e':p>=40?'#3b82f6':'#f59e0b';}
+function autoProg(t){if(!t.subtasks?.length)return t.progress||0;return Math.round(t.subtasks.filter(s=>s.status==='done').length/t.subtasks.length*100);}
+function weekNum(d){const s=new Date(d.getFullYear(),0,1);return Math.ceil(((d-s)/864e5+s.getDay()+1)/7);}
+function showLoading(msg){const l=document.getElementById('loading');l.style.display='flex';document.getElementById('loading-msg').textContent=msg||'Loading…';}
+function hideLoading(){document.getElementById('loading').style.display='none';}
+function setSyncDot(state){const d=document.getElementById('sync-dot');if(d){d.className='sync-dot'+(state==='syncing'?' syncing':'');}}
+
+const TYPE_ICON={feature:'✨',bug:'🐛',optimisation:'⚡','ad-hoc':'🔀',chore:'🔧'};
+const TYPE_COLOR={feature:'#3b82f6',bug:'#ef4444',optimisation:'#f59e0b','ad-hoc':'#8b5cf6',chore:'#64748b'};
+function typeClass(tp){return tp==='bug'?'type-bug':tp==='feature'?'type-feature':(tp==='optimisation'||tp==='chore')?'type-optimisation':tp==='ad-hoc'?'type-ad-hoc':'';}
+
+// ── AUTH ──────────────────────────────────────────────────
+function login(){
+  const input=document.getElementById('l-email').value.trim().toLowerCase();
+  const pass=document.getElementById('l-pass').value.trim();
+  const u=USERS.find(u=>u.name.split(' ')[0].toLowerCase()===input&&u.password.toLowerCase()===pass.toLowerCase());
+  if(!u){document.getElementById('l-err').style.display='block';return;}
+  S.user=u;
+  document.getElementById('login-page').style.display='none';
+  document.getElementById('app').style.display='flex';
+  initApp();
+}
+function logout(){
+  clearInterval(S.refreshTimer);
+  S.user=null;S.tasks=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='flex';
+  document.getElementById('l-email').value='';
+  document.getElementById('l-pass').value='';
+  document.getElementById('l-err').style.display='none';
+}
+
+async function initApp(){
+  const u=S.user;
+  document.getElementById('s-av').textContent=av(u);
+  document.getElementById('s-av').style.background=u.color;
+  document.getElementById('s-name').textContent=u.name;
+  document.getElementById('s-role').textContent=u.role.replace('_',' ');
+  const now=new Date();
+  document.getElementById('sprint-label').textContent='Week '+weekNum(now)+' · '+now.toLocaleDateString('en-US',{month:'short',year:'numeric'});
+  buildNav();
+  await db.init();
+  nav(u.role==='developer'?'my-tasks':'board');
+  // Auto-refresh every 30s to sync team changes
+  S.refreshTimer=setInterval(()=>db.refresh(),30000);
+}
+
+function buildNav(){
+  const r=S.user.role;
+  const items=[];
+  if(r==='manager'||r==='scrum_master'){
+    items.push({id:'board',icon:'📋',label:'Board'});
+    items.push({id:'workload',icon:'👥',label:'Workload'});
+  }
+  if(r==='developer'){
+    items.push({id:'my-tasks',icon:'✅',label:'My Tasks'});
+    items.push({id:'board',icon:'📋',label:'Team Board'});
+  }
+  items.push({id:'bugs',icon:'🐛',label:'Bug Summary'});
+  items.push({id:'sprint',icon:'📊',label:'Sprint Summary'});
+  document.getElementById('snav').innerHTML=items.map(it=>`
+    <div class="nav-item" id="nav-${it.id}" onclick="nav('${it.id}')">
+      <span class="nav-icon">${it.icon}</span>${it.label}
+    </div>`).join('');
+}
+
+function nav(view){
+  S.view=view;
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
+  document.getElementById('nav-'+view)?.classList.add('active');
+  render();
+}
+
+function render(){
+  const titles={board:'Board',workload:'Workload','my-tasks':'My Tasks',bugs:'Bug Summary',sprint:'Sprint Summary'};
+  document.getElementById('pg-title').textContent=titles[S.view]||'';
+  document.getElementById('pg-sub').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('pg-actions').innerHTML='';
+  document.getElementById('content').innerHTML='';
+  if(S.view==='board')renderBoard();
+  else if(S.view==='workload')renderWorkload();
+  else if(S.view==='my-tasks')renderMyTasks();
+  else if(S.view==='bugs')renderBugSummary();
+  else if(S.view==='sprint')renderSprint();
+}
+
+// ── BOARD ─────────────────────────────────────────────────
+function renderBoard(){
+  const r=S.user.role;
+  const act=document.getElementById('pg-actions');
+  act.innerHTML=`<span id="sync-dot" class="sync-dot" title="Live sync active"></span>`;
+  if(r!=='developer')act.innerHTML+=`<button class="btn btn-secondary btn-sm" onclick="db.refresh().then(()=>toast('🔄 Refreshed'))">🔄 Refresh</button>`;
+  if(r!=='developer')act.innerHTML+=`<button class="btn btn-secondary btn-sm" onclick="showSummary()">📤 Share Summary</button>`;
+  if(r==='scrum_master')act.innerHTML+=`<button class="btn btn-primary btn-sm" onclick="startStandup()">🎯 Start Standup</button>`;
+  if(r==='manager'||r==='scrum_master')act.innerHTML+=`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Task</button>`;
+  const c=document.getElementById('content');
+  c.innerHTML=`
+    <div class="filter-bar">
+      <input type="text" id="fs" placeholder="🔍 Search…" oninput="rbc()" style="width:160px;">
+      <select id="fd" onchange="rbc()"><option value="">All Developers</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
+      <select id="ft" onchange="rbc()"><option value="">All Types</option><option value="feature">✨ Feature</option><option value="bug">🐛 Bug</option><option value="optimisation">⚡ Optimisation</option><option value="ad-hoc">🔀 Ad-hoc</option><option value="chore">🔧 Chore</option></select>
+      <select id="fp" onchange="rbc()"><option value="">All Priorities</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select>
+      <select id="fm" onchange="rbc()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+      <select id="fmed" onchange="rbc()"><option value="">All Mediums</option>${MEDIUMS.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+      <select id="fo" onchange="rbc()"><option value="">All Tasks</option><option value="overdue">Overdue</option><option value="carried">Carried Over</option><option value="blocked">Blocked</option></select>
+    </div>
+    <div id="brd"></div>`;
+  rbc();
+}
+
+function gf(){
+  const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
+  return{s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo')};
+}
+
+function filtered(){
+  const f=gf();
+  return db.tasks().filter(t=>{
+    if(f.s&&!t.title.toLowerCase().includes(f.s))return false;
+    if(f.d&&t.assignee_id!==f.d)return false;
+    if(f.t&&t.type!==f.t)return false;
+    if(f.p&&t.priority!==f.p)return false;
+    if(f.m&&t.module!==f.m)return false;
+    if(f.med&&t.medium!==f.med)return false;
+    if(f.o==='overdue'&&!isBreached(t))return false;
+    if(f.o==='carried'&&!t.is_carried)return false;
+    if(f.o==='blocked'&&t.status!=='blocked')return false;
+    return true;
+  });
+}
+
+function rbc(){
+  const el=document.getElementById('brd');if(!el)return;
+  const tasks=filtered();
+  const stats=['todo','in_progress','blocked','done'];
+  const labels={todo:'To Do',in_progress:'In Progress',blocked:'Blocked',done:'Done'};
+  el.innerHTML='<div class="board">'+stats.map(s=>{
+    const ts=tasks.filter(t=>t.status===s);
+    return`<div class="board-col">
+      <div class="board-col-hdr">
+        <span class="bcol-title" style="color:${s==='blocked'?'var(--blocked)':s==='done'?'var(--done)':s==='in_progress'?'var(--inprog)':'var(--text2)'}">${labels[s]}</span>
+        <span class="bcol-count">${ts.length}</span>
+      </div>
+      ${ts.map(t=>tcardHTML(t)).join('')}
+      ${ts.length===0?`<div style="padding:16px 8px;text-align:center;font-size:11px;color:var(--text2)">No tasks</div>`:''}
+    </div>`;
+  }).join('')+'</div>';
+}
+
+function tcardHTML(t){
+  const a=uid(t.assignee_id);
+  const edd=t.edd_sm||t.edd;
+  const br=isBreached(t),ag=isAging(t);
+  const p=autoProg(t);
+  const ticon=TYPE_ICON[t.type]||'📌';
+  const tcolor=TYPE_COLOR[t.type]||'#64748b';
+  return`<div class="tcard ${typeClass(t.type)} ${br?'breached':''} ${ag&&!br?'aging':''}" onclick="openDrawer('${t.id}')">
+    <div class="tc-top">
+      <div class="tc-title"><span title="${t.type}">${ticon}</span> ${t.title}</div>
+      <button class="info-btn" onclick="event.stopPropagation();openDrawer('${t.id}')" title="Details">ⓘ</button>
+    </div>
+    ${t.module||t.medium?`<div class="tc-module">${t.module?`📦 <b>${t.module}</b>`:''}${t.module&&t.medium?' · ':''}${t.medium?`🖥 <b>${t.medium}</b>`:''}</div>`:''}
+    <div class="tc-chips">
+      <span class="chip ${schip(t.status)}">${slabel(t.status)}</span>
+      <span class="chip ch-${t.priority}">${t.priority||'—'}</span>
+      <span class="chip" style="background:${tcolor}18;color:${tcolor}">${ticon} ${t.type}</span>
+      ${t.is_carried?'<span class="chip ch-carried">↩</span>':''}
+    </div>
+    <div class="tc-footer">
+      <div style="display:flex;align-items:center;">
+        ${a?`<div class="tc-av" style="background:${a.color}">${av(a)}</div><span class="tc-name">${a.name.split(' ')[0]}</span>`:'<span class="tc-name" style="color:var(--text2)">Unassigned</span>'}
+      </div>
+      <span class="tc-edd ${br?'red':''}">${edd?(br?'⚠️ ':'')+fdate(edd):'—'}</span>
+    </div>
+    ${p>0||t.subtasks?.length?`<div class="tc-prog"><div class="pbar"><div class="pfill" style="width:${p}%;background:${progColor(p)}"></div></div><div class="ptext">${p}%${t.subtasks?.length?' · '+t.subtasks.filter(s=>s.status==='done').length+'/'+t.subtasks.length+' subtasks':''}</div></div>`:''}
+    ${ag&&t.status!=='done'?`<div class="aging-flag">⚠️ Stalled ${Math.floor((Date.now()-new Date(t.updated_at||t.created_at))/864e5)}d</div>`:''}
+  </div>`;
+}
+
+// ── WORKLOAD ──────────────────────────────────────────────
+function renderWorkload(){
+  document.getElementById('pg-actions').innerHTML=`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Task</button>`;
+  const tasks=db.tasks();
+  const total=tasks.length,done=tasks.filter(t=>t.status==='done').length;
+  const blk=tasks.filter(t=>t.status==='blocked').length,ov=tasks.filter(t=>isBreached(t)).length;
+  document.getElementById('content').innerHTML=`
+    <div class="stats-row">
+      <div class="stat-card"><h4>Total Tasks</h4><div class="stat-num">${total}</div><div class="stat-sub">This sprint</div></div>
+      <div class="stat-card"><h4>Completed</h4><div class="stat-num" style="color:var(--done)">${done}</div><div class="stat-sub">${total?Math.round(done/total*100):0}% velocity</div></div>
+      <div class="stat-card"><h4>Blocked</h4><div class="stat-num" style="color:var(--blocked)">${blk}</div></div>
+      <div class="stat-card"><h4>Overdue</h4><div class="stat-num" style="color:#f59e0b">${ov}</div></div>
+    </div>
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:12px;">Developer Workload</div>
+    <div class="wl-grid">
+      ${devs().map(dev=>{
+        const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');
+        const bugs=dt.filter(t=>t.type==='bug'),blkd=dt.filter(t=>t.status==='blocked');
+        const unassigned=dt.length===0,bugsOnly=dt.length>0&&bugs.length===dt.length;
+        const isBlk=blkd.length>0,overloaded=dt.length>=5;
+        return`<div class="wl-card ${isBlk?'blocked-card':''} ${bugsOnly&&!isBlk?'bugs-card':''} ${unassigned?'empty-card':''}">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+            <div class="uav" style="width:30px;height:30px;font-size:11px;background:${dev.color}">${av(dev)}</div>
+            <div class="wl-name">${dev.name}</div>
+          </div>
+          <div class="wl-stats">${dt.length} open · ${bugs.length} bugs · ${blkd.length} blocked</div>
+          <div class="wl-badges">
+            ${unassigned?'<span class="badge bg-grey">Unassigned</span>':''}
+            ${bugsOnly?'<span class="badge bg-yellow">Bugs Only</span>':''}
+            ${isBlk?'<span class="badge bg-red">Blocked</span>':''}
+            ${overloaded?'<span class="badge bg-orange">Overloaded</span>':''}
+            ${!unassigned&&!bugsOnly&&!isBlk&&!overloaded?'<span class="badge bg-green">On Track</span>':''}
+          </div>
+          ${dt.slice(0,3).map(t=>`<div class="wl-task-preview">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>`).join('')}
+          ${dt.length>3?`<div style="font-size:10px;color:var(--blue);margin-top:3px">+${dt.length-3} more</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── MY TASKS (DEV) ────────────────────────────────────────
+function renderMyTasks(){
+  const tasks=db.tasks().filter(t=>t.assignee_id===S.user.id);
+  const open=tasks.filter(t=>t.status!=='done'),done=tasks.filter(t=>t.status==='done');
+  document.getElementById('content').innerHTML=`
+    <div class="stats-row">
+      <div class="stat-card"><h4>Open</h4><div class="stat-num">${open.length}</div></div>
+      <div class="stat-card"><h4>Done</h4><div class="stat-num" style="color:var(--done)">${done.length}</div></div>
+      <div class="stat-card"><h4>Blocked</h4><div class="stat-num" style="color:var(--blocked)">${tasks.filter(t=>t.status==='blocked').length}</div></div>
+      <div class="stat-card"><h4>Overdue</h4><div class="stat-num" style="color:#f59e0b">${tasks.filter(t=>isBreached(t)).length}</div></div>
+    </div>
+    <div style="font-size:13px;font-weight:800;margin-bottom:12px;">Active Tasks</div>
+    ${open.length===0?'<div style="text-align:center;padding:32px;color:var(--text2);">🎉 No open tasks!</div>':''}
+    ${open.map(t=>devRow(t)).join('')}
+    ${done.length?`<div style="font-size:13px;font-weight:800;margin:18px 0 10px;color:var(--text2);">Completed</div>${done.map(t=>devRow(t)).join('')}`:''}`;
+}
+
+function devRow(t){
+  const edd=t.edd_sm||t.edd;const br=isBreached(t);const p=autoProg(t);
+  return`<div class="dev-row ${br?'breached':''}">
+    <div class="dr-info">
+      <div class="dr-title">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>
+      <div class="dr-meta">
+        ${t.module?`<span>📦 ${t.module}</span>`:''}
+        ${t.medium?`<span>🖥 ${t.medium}</span>`:''}
+        <span class="chip ch-${t.priority}" style="font-size:9px;padding:1px 5px;">${t.priority}</span>
+        ${edd?`<span ${br?'style="color:var(--blocked);font-weight:700;"':''}>📅 ${fdate(edd)}${br?' ⚠️':''}</span>`:''}
+        ${p>0?`<span>▓ ${p}%</span>`:''}
+      </div>
+    </div>
+    <div class="dr-actions">
+      <select class="status-sel" onchange="devStatus('${t.id}',this.value)">
+        <option value="todo" ${t.status==='todo'?'selected':''}>To Do</option>
+        <option value="in_progress" ${t.status==='in_progress'?'selected':''}>In Progress</option>
+        <option value="blocked" ${t.status==='blocked'?'selected':''}>Blocked</option>
+        <option value="done" ${t.status==='done'?'selected':''}>Done</option>
+      </select>
+      ${t.status!=='blocked'?`<button class="blocker-btn" onclick="markBlocked('${t.id}')">🚫</button>`:''}
+      <button class="info-btn" onclick="openDrawer('${t.id}')">ⓘ</button>
+    </div>
+  </div>`;
+}
+
+function devStatus(id,status){db.update(id,{status});toast('Status updated');render();}
+function markBlocked(id){
+  const r=prompt('Why is this blocked?\n1. Waiting on another dev\n2. External dependency\n3. Unclear requirement\n4. Infra issue\n\nType reason:');
+  if(r===null)return;
+  db.update(id,{status:'blocked',blocker_reason:r});
+  toast('🚫 Marked blocked');render();
+}
+
+// ── BUG SUMMARY ───────────────────────────────────────────
+function renderBugSummary(){
+  const r=S.user.role;
+  const canEdit=r==='scrum_master'||r==='developer';
+  const allBugs=db.tasks().filter(t=>t.type==='bug');
+  // For developer: show only own bugs; for SM/manager: show all devs
+  const targetDevs=r==='developer'?devs().filter(d=>d.id===S.user.id):devs();
+  const BUG_STATES=[
+    {key:'open',      label:'Open',       color:'#3b82f6', bg:'#dbeafe'},
+    {key:'in_progress',label:'In Progress',color:'#f59e0b',bg:'#fef3c7'},
+    {key:'blocked',   label:'Blocked',    color:'#ef4444', bg:'#fee2e2'},
+    {key:'resolved',  label:'Resolved',   color:'#22c55e', bg:'#dcfce7'},
+    {key:'closed',    label:'Closed',     color:'#94a3b8', bg:'#f1f5f9'},
+  ];
+  // Map our statuses: todo→open, done→resolved; resolved/closed are bug-specific
+  function bugState(t){
+    if(t.bug_state)return t.bug_state;
+    if(t.status==='done')return'resolved';
+    if(t.status==='blocked')return'blocked';
+    if(t.status==='in_progress')return'in_progress';
+    return'open';
+  }
+  const totalBugs=allBugs.length;
+  const byState=s=>allBugs.filter(t=>bugState(t)===s);
+  document.getElementById('content').innerHTML=`
+    <div class="stats-row">
+      ${BUG_STATES.map(s=>`
+        <div class="stat-card" style="border-left:4px solid ${s.color}">
+          <h4>${s.label}</h4>
+          <div class="stat-num" style="color:${s.color}">${byState(s.key).length}</div>
+          <div class="stat-sub">of ${totalBugs} total</div>
+        </div>`).join('')}
+    </div>
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:14px;">Per Developer</div>
+    ${targetDevs.map(dev=>{
+      const devBugs=allBugs.filter(t=>t.assignee_id===dev.id);
+      if(!devBugs.length)return`
+        <div style="background:#fff;border-radius:10px;padding:14px 18px;border:1.5px solid var(--border);margin-bottom:10px;display:flex;align-items:center;gap:12px;">
+          <div class="uav" style="width:32px;height:32px;font-size:12px;background:${dev.color}">${av(dev)}</div>
+          <div style="font-size:13px;font-weight:700;">${dev.name}</div>
+          <div style="font-size:12px;color:var(--text2);margin-left:4px;">No bugs assigned 🎉</div>
+        </div>`;
+      return`
+        <div style="background:#fff;border-radius:12px;padding:16px 20px;border:1.5px solid var(--border);margin-bottom:14px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <div class="uav" style="width:34px;height:34px;font-size:13px;background:${dev.color}">${av(dev)}</div>
+            <div>
+              <div style="font-size:14px;font-weight:800;">${dev.name}</div>
+              <div style="font-size:11px;color:var(--text2);">${devBugs.length} bug${devBugs.length>1?'s':''} assigned</div>
+            </div>
+            <div style="margin-left:auto;display:flex;gap:6px;">
+              ${BUG_STATES.map(s=>{
+                const cnt=devBugs.filter(t=>bugState(t)===s.key).length;
+                return cnt?`<span style="background:${s.bg};color:${s.color};padding:2px 8px;border-radius:12px;font-size:11px;font-weight:800;">${s.label}: ${cnt}</span>`:'';
+              }).join('')}
+            </div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;">
+            <thead>
+              <tr style="font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);">
+                <th style="text-align:left;padding:5px 8px;font-weight:800;">Bug</th>
+                <th style="text-align:left;padding:5px 8px;font-weight:800;">Module</th>
+                <th style="text-align:left;padding:5px 8px;font-weight:800;">Priority</th>
+                <th style="text-align:left;padding:5px 8px;font-weight:800;">EDD</th>
+                <th style="text-align:left;padding:5px 8px;font-weight:800;">State</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${devBugs.map(t=>{
+                const bs=bugState(t);
+                const st=BUG_STATES.find(s=>s.key===bs)||BUG_STATES[0];
+                const edd=t.edd_sm||t.edd;const br=isBreached(t);
+                return`<tr style="border-top:1px solid var(--border);font-size:12px;" onclick="openDrawer('${t.id}')" title="Click to view details" class="bug-row">
+                  <td style="padding:8px 8px;font-weight:600;cursor:pointer;">🐛 ${t.title}</td>
+                  <td style="padding:8px 8px;color:var(--text2);">${t.module||'—'}</td>
+                  <td style="padding:8px 8px;"><span class="chip ch-${t.priority}">${t.priority}</span></td>
+                  <td style="padding:8px 8px;${br?'color:var(--blocked);font-weight:700;':''}">${fdate(edd)||'—'}${br?' ⚠️':''}</td>
+                  <td style="padding:8px 8px;" onclick="event.stopPropagation()">
+                    ${canEdit||dev.id===S.user.id?`
+                    <select onchange="updateBugState('${t.id}',this.value)" style="border:1.5px solid ${st.color};border-radius:7px;padding:4px 8px;font-size:11px;font-weight:700;color:${st.color};background:${st.bg};outline:none;cursor:pointer;">
+                      ${BUG_STATES.map(s=>`<option value="${s.key}" ${bs===s.key?'selected':''} style="color:var(--text);background:#fff;">${s.label}</option>`).join('')}
+                    </select>`
+                    :`<span style="background:${st.bg};color:${st.color};padding:3px 8px;border-radius:12px;font-size:11px;font-weight:800;">${st.label}</span>`}
+                  </td>
+                </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }).join('')}`;
+  // Add hover style for bug rows
+  const style=document.createElement('style');
+  style.textContent='.bug-row:hover td{background:#f8fafc;}';
+  document.head.appendChild(style);
+}
+
+function updateBugState(taskId,bugState){
+  // Map bug state back to main status where applicable
+  const statusMap={open:'todo',in_progress:'in_progress',blocked:'blocked',resolved:'done',closed:'done'};
+  db.update(taskId,{bug_state:bugState,status:statusMap[bugState]||'todo'});
+  toast('🐛 Bug state updated');
+  renderBugSummary();
+}
+
+// ── SPRINT SUMMARY ────────────────────────────────────────
+function renderSprint(){
+  const tasks=db.tasks();
+  const done=tasks.filter(t=>t.status==='done'),carried=tasks.filter(t=>t.is_carried);
+  document.getElementById('content').innerHTML=`
+    <div class="stats-row">
+      <div class="stat-card"><h4>Total</h4><div class="stat-num">${tasks.length}</div></div>
+      <div class="stat-card"><h4>Completed</h4><div class="stat-num" style="color:var(--done)">${done.length}</div><div class="stat-sub">${tasks.length?Math.round(done.length/tasks.length*100):0}% velocity</div></div>
+      <div class="stat-card"><h4>Bugs Fixed</h4><div class="stat-num" style="color:var(--blue)">${done.filter(t=>t.type==='bug').length}</div></div>
+      <div class="stat-card"><h4>Carried Over</h4><div class="stat-num" style="color:#9333ea">${carried.length}</div></div>
+    </div>
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:12px;">Per Developer</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      ${devs().map(dev=>{
+        const dt=tasks.filter(t=>t.assignee_id===dev.id);
+        const dc=dt.filter(t=>t.status==='done');
+        const pct=dt.length?Math.round(dc.length/dt.length*100):0;
+        return`<div class="stat-card">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+            <div class="uav" style="width:28px;height:28px;font-size:10px;background:${dev.color}">${av(dev)}</div>
+            <span style="font-size:13px;font-weight:700;">${dev.name.split(' ')[0]}</span>
+          </div>
+          <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">${dc.length}/${dt.length} done · ${dt.filter(t=>t.type==='bug').length} bugs</div>
+          <div class="pbar"><div class="pfill" style="width:${pct}%;background:${progColor(pct)}"></div></div>
+          <div style="font-size:10px;color:var(--text2);margin-top:3px">${pct}% complete</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+}
+
+// ── DRAWER ────────────────────────────────────────────────
+function openDrawer(taskId){
+  S.openTask=taskId;
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const a=uid(t.assignee_id),cb=uid(t.created_by);
+  const eff=t.edd_sm||t.edd,br=isBreached(t);
+  const p=autoProg(t),r=S.user.role;
+  const canEDD=r==='scrum_master'||r==='manager';
+  const canProg=r!=='developer'||t.assignee_id===S.user.id;
+  document.getElementById('drawer').innerHTML=`
+    <div class="dwr-hdr">
+      <div>
+        <div class="dwr-title">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>
+        <div style="margin-top:6px;display:flex;gap:4px;flex-wrap:wrap;">
+          <span class="chip ${schip(t.status)}">${slabel(t.status)}</span>
+          <span class="chip ch-${t.priority}">${t.priority||'—'}</span>
+          <span class="chip" style="background:${(TYPE_COLOR[t.type]||'#64748b')}18;color:${TYPE_COLOR[t.type]||'#64748b'}">${TYPE_ICON[t.type]||'📌'} ${t.type}</span>
+          ${t.is_carried?'<span class="chip ch-carried">↩ Carried Over</span>':''}
+        </div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        ${r==='scrum_master'||r==='manager'?`<button onclick="deleteTask('${t.id}')" style="padding:5px 10px;background:#fee2e2;color:#ef4444;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">🗑 Delete</button>`:''}
+        <button class="dwr-close" onclick="closeDrawer()">✕</button>
+      </div>
+    </div>
+    <div class="dwr-body">
+      <div class="dsec">
+        <div class="dsec-title">Details</div>
+        <div class="meta-grid">
+          <div class="meta-item"><label>Assignee</label><p>${a?a.name:'Unassigned'}</p></div>
+          <div class="meta-item"><label>Module</label><p>${t.module||'—'}</p></div>
+          <div class="meta-item"><label>Medium</label><p>${t.medium||'—'}</p></div>
+          <div class="meta-item"><label>Created By</label><p>${cb?cb.name:'—'}</p></div>
+          <div class="meta-item">
+            <label>Manager EDD</label>
+            <p ${t.edd&&br&&!t.edd_sm?'style="color:var(--blocked)"':''}>${fdate(t.edd)}</p>
+          </div>
+          <div class="meta-item">
+            <label>Effective EDD ${t.edd_sm?'<span class="sm-badge">SM Adjusted</span>':''}</label>
+            <div class="edd-row">
+              <p ${br?'style="color:var(--blocked);font-weight:800;"':''}>${fdate(eff)}${br?' ⚠️':''}</p>
+              ${canEDD?`<button class="btn btn-secondary btn-sm" onclick="editEDD('${t.id}')" style="font-size:10px;padding:3px 8px">✏️ Adjust</button>`:''}
+            </div>
+          </div>
+        </div>
+        ${t.description?`<div style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.6;">${t.description}</div>`:''}
+        ${t.blocker_reason?`<div class="blocker-box">🚫 Blocker: ${t.blocker_reason}</div>`:''}
+      </div>
+      <div class="sep"></div>
+      <div class="dsec">
+        <div class="dsec-title">Progress</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:14px;font-weight:800;">${p}% Complete</span>
+          ${t.subtasks?.length?`<span style="font-size:11px;color:var(--text2)">${t.subtasks.filter(s=>s.status==='done').length}/${t.subtasks.length} subtasks</span>`:''}
+        </div>
+        <div class="big-pbar"><div class="big-pfill" id="bpf" style="width:${p}%;background:${progColor(p)}"></div></div>
+        ${canProg&&!t.subtasks?.length?`
+          <div class="prog-manual">
+            <input type="range" min="0" max="100" value="${t.progress||0}" oninput="slideProgress('${t.id}',this.value)" id="pslider">
+            <span class="prog-val" id="pval">${t.progress||0}%</span>
+          </div>
+          <div class="prog-note">Drag to set progress manually. Auto-calculated when subtasks exist.</div>`:''}
+      </div>
+      <div class="sep"></div>
+      <div class="dsec">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div class="dsec-title" style="margin-bottom:0">Subtasks (${t.subtasks?.length||0})</div>
+          ${r==='manager'||r==='scrum_master'?`<button class="btn btn-secondary btn-sm" onclick="showAddST('${t.id}')">+ Add</button>`:''}
+        </div>
+        <div id="stlist-${t.id}">
+          ${t.subtasks?.length?t.subtasks.map((s,i)=>`
+            <div class="st-item">
+              <div class="st-check ${s.status==='done'?'done':''}" onclick="toggleST('${t.id}',${i})">${s.status==='done'?'✓':''}</div>
+              <div style="flex:1">
+                <div class="st-title ${s.status==='done'?'done':''}">${s.title}</div>
+                <div class="st-meta">
+                  ${s.assignee_id?`<b>${uid(s.assignee_id)?.name?.split(' ')[0]||'?'}</b>`:''}
+                  ${s.edd?`<span>📅 ${fdate(s.edd)}</span>`:''}
+                </div>
+              </div>
+              <span class="chip ${schip(s.status)}" style="font-size:9px">${slabel(s.status)}</span>
+            </div>`).join(''):'<div style="font-size:12px;color:var(--text2);padding:8px 0">No subtasks yet.</div>'}
+        </div>
+        <div id="stform-${t.id}" style="display:none;margin-top:10px;padding:12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);">
+          <div class="fg"><label>Subtask Title</label><input type="text" id="stt" placeholder="Title"/></div>
+          <div class="fr">
+            <div class="fg"><label>Assignee</label><select id="sta"><option value="">Parent dev</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select></div>
+            <div class="fg"><label>EDD</label><input type="date" id="ste"/></div>
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-secondary btn-sm" onclick="document.getElementById('stform-${t.id}').style.display='none'">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="saveST('${t.id}')">Add Subtask</button>
+          </div>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="dsec">
+        <div class="dsec-title">Comments</div>
+        <div class="cmt-input-row">
+          <input type="text" id="cmti-${t.id}" placeholder="Add a comment…" onkeydown="if(event.key==='Enter')saveComment('${t.id}')"/>
+          <button class="btn btn-primary btn-sm" onclick="saveComment('${t.id}')">Send</button>
+        </div>
+        ${(t.comments||[]).length===0?'<div style="font-size:12px;color:var(--text2)">No comments yet.</div>':''}
+        ${(t.comments||[]).slice().reverse().map(c=>{
+          const cu=uid(c.uid);
+          return`<div class="cmt-item">
+            <div class="cmt-av" style="background:${cu?.color||'#64748b'}">${av(cu)}</div>
+            <div><div class="cmt-name">${cu?.name||'?'} · ${fdate(c.at)}</div><div class="cmt-text">${c.text}</div></div>
+          </div>`;}).join('')}
+      </div>
+      <div class="sep"></div>
+      <div class="dsec">
+        <div class="dsec-title">Activity Log</div>
+        ${(t.activity||[]).slice().reverse().map(a=>{
+          const au=uid(a.uid);
+          return`<div class="act-item"><span><b>${au?.name||'System'}</b> — ${a.action}</span><span>${fdate(a.at)}</span></div>`;}).join('')}
+      </div>
+    </div>`;
+  document.getElementById('doverlay').style.display='block';
+  setTimeout(()=>document.getElementById('drawer').classList.add('open'),10);
+}
+
+function deleteTask(id){
+  if(!confirm('Delete this task? This cannot be undone.'))return;
+  S.tasks=S.tasks.filter(t=>t.id!==id);
+  fetch(SB.url+'/rest/v1/tasks?id=eq.'+id,{method:'DELETE',headers:SB.hdrs});
+  closeDrawer();toast('🗑 Task deleted');render();
+}
+
+function closeDrawer(){
+  document.getElementById('drawer').classList.remove('open');
+  document.getElementById('doverlay').style.display='none';
+  S.openTask=null;
+}
+
+function editEDD(id){
+  const t=db.tasks().find(x=>x.id===id);
+  const cur=t.edd_sm||t.edd||'';
+  const v=prompt(`Adjust EDD\nManager set: ${fdate(t.edd)||'Not set'}\nCurrent: ${fdate(cur)||'Not set'}\n\nEnter new date (YYYY-MM-DD):`,cur);
+  if(!v)return;
+  db.update(id,{edd_sm:v});
+  toast('📅 EDD adjusted');openDrawer(id);render();
+}
+
+function toggleST(taskId,idx){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const subtasks=[...t.subtasks];
+  subtasks[idx]={...subtasks[idx],status:subtasks[idx].status==='done'?'todo':'done'};
+  db.updateSubtasks(taskId,subtasks);
+  openDrawer(taskId);render();
+}
+
+function showAddST(id){document.getElementById('stform-'+id).style.display='block';}
+
+function saveST(taskId){
+  const title=document.getElementById('stt').value.trim();if(!title)return;
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const subtasks=[...(t.subtasks||[]),{id:'st'+Date.now(),title,assignee_id:document.getElementById('sta').value||t.assignee_id,edd:document.getElementById('ste').value||null,status:'todo'}];
+  db.updateSubtasks(taskId,subtasks);
+  toast('Subtask added');openDrawer(taskId);render();
+}
+
+function slideProgress(id,v){
+  document.getElementById('pval').textContent=v+'%';
+  const f=document.getElementById('bpf');if(f){f.style.width=v+'%';f.style.background=progColor(parseInt(v));}
+  db.update(id,{progress:parseInt(v)});render();
+}
+
+function saveComment(taskId){
+  const inp=document.getElementById('cmti-'+taskId);
+  if(!inp?.value.trim())return;
+  db.addComment(taskId,inp.value.trim());
+  toast('Comment added');openDrawer(taskId);
+}
+
+// ── TASK MODAL ────────────────────────────────────────────
+function showTaskModal(){
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-hdr"><h3>➕ Create New Task</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="fg"><label>Task Title *</label><input type="text" id="m-title" placeholder="What needs to be done?"/></div>
+    <div class="fg"><label>Description</label><textarea id="m-desc" rows="2" placeholder="Optional context…"></textarea></div>
+    <div class="fr">
+      <div class="fg"><label>Type *</label><select id="m-type"><option value="feature">✨ Feature</option><option value="bug">🐛 Bug</option><option value="optimisation">⚡ Optimisation</option><option value="ad-hoc">🔀 Ad-hoc</option><option value="chore">🔧 Chore</option></select></div>
+      <div class="fg"><label>Priority *</label><select id="m-pri"><option value="P1">P1 — Critical</option><option value="P2">P2 — Medium</option><option value="P3" selected>P3 — Low</option></select></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Module</label><select id="m-mod"><option value="">— Select —</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select></div>
+      <div class="fg"><label>Medium</label><select id="m-med"><option value="">— Select —</option>${MEDIUMS.map(m=>`<option value="${m}">${m}</option>`).join('')}</select></div>
+    </div>
+    <div class="fr">
+      <div class="fg"><label>Assignee</label><select id="m-dev"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select></div>
+      <div class="fg"><label>EDD</label><input type="date" id="m-edd"/></div>
+    </div>
+    <div class="fg"><label>Task Source</label><select id="m-src"><option value="sprint">Sprint (Monday planned)</option><option value="ad-hoc">Mid-week Ad-hoc</option></select></div>
+    <div class="sep"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+      <div style="font-size:12px;font-weight:800;">Subtasks</div>
+      <button class="btn btn-secondary btn-sm" onclick="addSTRow()">+ Add Subtask</button>
+    </div>
+    <div id="st-rows"></div>
+    <div class="form-actions">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitTask()">Create Task</button>
+    </div>`;
+  document.getElementById('moverlay').style.display='flex';
+}
+
+function addSTRow(){
+  const c=document.getElementById('st-rows');
+  const d=document.createElement('div');
+  d.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:flex-end;margin-bottom:8px;';
+  d.innerHTML=`
+    <div class="fg" style="margin:0"><label>Subtask</label><input type="text" class="str-t" placeholder="Title"/></div>
+    <div class="fg" style="margin:0"><label>Assignee</label><select class="str-a"><option value="">Parent dev</option>${devs().map(x=>`<option value="${x.id}">${x.name.split(' ')[0]}</option>`).join('')}</select></div>
+    <div class="fg" style="margin:0"><label>EDD</label><input type="date" class="str-e"/></div>
+    <button class="btn btn-secondary btn-sm" style="margin-bottom:1px" onclick="this.parentElement.remove()">✕</button>`;
+  c.appendChild(d);
+}
+
+function submitTask(){
+  const title=document.getElementById('m-title').value.trim();
+  if(!title){alert('Title is required');return;}
+  const rows=document.querySelectorAll('#st-rows > div');
+  const subtasks=[];
+  rows.forEach(row=>{
+    const t=row.querySelector('.str-t').value.trim();
+    if(t)subtasks.push({id:'st'+Date.now()+Math.random(),title:t,assignee_id:row.querySelector('.str-a').value||document.getElementById('m-dev').value,edd:row.querySelector('.str-e').value||null,status:'todo'});
+  });
+  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,status:'todo',created_by:S.user.id,subtasks});
+  closeModal();toast('✅ Task created');render();
+}
+
+function closeModal(e){
+  if(e&&e.target!==document.getElementById('moverlay'))return;
+  document.getElementById('moverlay').style.display='none';
+}
+
+// ── STANDUP ───────────────────────────────────────────────
+let suDevs=[];
+function startStandup(){
+  suDevs=devs();S.suIdx=0;
+  document.getElementById('su-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  document.getElementById('standup').style.display='flex';
+  renderSU();
+}
+function renderSU(){
+  const dev=suDevs[S.suIdx];
+  const tasks=db.tasks().filter(t=>t.assignee_id===dev.id);
+  const done=tasks.filter(t=>t.status==='done');
+  const active=tasks.filter(t=>t.status==='in_progress'||t.status==='todo');
+  const blk=tasks.filter(t=>t.status==='blocked');
+  document.getElementById('su-title').textContent='Standup — '+dev.name.split(' ')[0];
+  document.getElementById('su-info').textContent=(S.suIdx+1)+' of '+suDevs.length;
+  document.getElementById('su-next').textContent=S.suIdx===suDevs.length-1?'✓ Finish':'Next →';
+  document.getElementById('su-dots').innerHTML=suDevs.map((_,i)=>`<div class="su-dot ${i<S.suIdx?'done':i===S.suIdx?'cur':''}"></div>`).join('');
+  document.getElementById('su-side').innerHTML=`
+    <div class="su-av" style="background:${dev.color}">${av(dev)}</div>
+    <div class="su-name">${dev.name}</div>
+    <div class="su-role">Developer</div>
+    <div class="su-summary" style="margin-top:18px;">
+      <p>✅ Done: <strong style="color:#22c55e">${done.length}</strong></p>
+      <p>🔵 Active: <strong style="color:#3b82f6">${active.length}</strong></p>
+      <p>🚫 Blocked: <strong style="color:#ef4444">${blk.length}</strong></p>
+    </div>`;
+  function suTaskCard(t,cls=''){
+    return`<div class="su-task ${cls}" style="position:relative;">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
+        <div style="flex:1"><p>${TYPE_ICON[t.type]||'📌'} ${t.title}</p><small>${t.module?'📦 '+t.module+' · ':''}EDD: ${fdate(t.edd_sm||t.edd)}</small></div>
+        <button onclick="suEditTask('${t.id}')" style="background:rgba(255,255,255,.12);border:none;border-radius:5px;color:rgba(255,255,255,.7);font-size:10px;padding:3px 7px;cursor:pointer;flex-shrink:0;" title="Edit">✏️</button>
+      </div>
+    </div>`;
+  }
+  document.getElementById('su-tasks').innerHTML=`
+    <div class="su-sec y">
+      <h4>✅ Completed</h4>
+      ${done.length?done.map(t=>suTaskCard(t)).join(''):'<div class="su-task"><p style="color:rgba(255,255,255,.3)">Nothing done</p></div>'}
+    </div>
+    <div class="su-sec t">
+      <h4>🔵 Today\'s Plan</h4>
+      ${active.length?active.map(t=>suTaskCard(t)).join(''):'<div class="su-task"><p style="color:rgba(255,255,255,.3)">No active tasks</p></div>'}
+    </div>
+    <div class="su-sec b">
+      <h4>🚫 Blockers</h4>
+      ${blk.length?blk.map(t=>suTaskCard(t,'bl')).join(''):'<div class="su-task"><p style="color:rgba(255,255,255,.3)">No blockers 🎉</p></div>'}
+    </div>`;
+}
+function suNext(){if(S.suIdx>=suDevs.length-1){closeStandup();return;}S.suIdx++;renderSU();}
+function suPrev(){if(S.suIdx<=0)return;S.suIdx--;renderSU();}
+function closeStandup(){document.getElementById('standup').style.display='none';}
+
+// ── STANDUP TASK EDIT ─────────────────────────────────────
+function suEditTask(taskId){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const ol=document.createElement('div');
+  ol.id='su-edit-overlay';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;display:flex;align-items:center;justify-content:center;';
+  ol.innerHTML=`
+    <div style="background:#1e293b;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:24px;width:480px;max-height:85vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <div style="color:#fff;font-size:15px;font-weight:800;">✏️ Edit Task</div>
+        <button onclick="document.getElementById('su-edit-overlay').remove()" style="background:rgba(255,255,255,.1);border:none;border-radius:6px;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;padding:2px 8px;">✕</button>
+      </div>
+      <div style="margin-bottom:12px;"><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">TITLE</label>
+      <input id="se-title" value="${t.title}" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">STATUS</label>
+        <select id="se-status" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
+          <option value="todo" ${t.status==='todo'?'selected':''} style="background:#1e293b">To Do</option>
+          <option value="in_progress" ${t.status==='in_progress'?'selected':''} style="background:#1e293b">In Progress</option>
+          <option value="blocked" ${t.status==='blocked'?'selected':''} style="background:#1e293b">Blocked</option>
+          <option value="done" ${t.status==='done'?'selected':''} style="background:#1e293b">Done</option>
+        </select></div>
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">PRIORITY</label>
+        <select id="se-pri" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
+          <option value="P1" ${t.priority==='P1'?'selected':''} style="background:#1e293b">P1</option>
+          <option value="P2" ${t.priority==='P2'?'selected':''} style="background:#1e293b">P2</option>
+          <option value="P3" ${t.priority==='P3'?'selected':''} style="background:#1e293b">P3</option>
+        </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">REASSIGN TO</label>
+        <select id="se-dev" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
+          ${devs().map(d=>`<option value="${d.id}" ${t.assignee_id===d.id?'selected':''} style="background:#1e293b">${d.name}</option>`).join('')}
+        </select></div>
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">MODULE</label>
+        <select id="se-mod" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
+          <option value="" style="background:#1e293b">— None —</option>
+          ${MODULES.map(m=>`<option value="${m}" ${t.module===m?'selected':''} style="background:#1e293b">${m}</option>`).join('')}
+        </select></div>
+      </div>
+      <div style="margin-bottom:12px;"><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">MEDIUM</label>
+      <select id="se-med" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
+        <option value="" style="background:#1e293b">— None —</option>
+        ${MEDIUMS.map(m=>`<option value="${m}" ${t.medium===m?'selected':''} style="background:#1e293b">${m}</option>`).join('')}
+      </select></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">MANAGER EDD</label>
+        <input type="date" id="se-edd-m" value="${t.edd||''}" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:#c4b5fd;display:block;margin-bottom:5px;">SM EDD OVERRIDE</label>
+        <input type="date" id="se-edd-sm" value="${t.edd_sm||''}" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(196,181,253,.4);border-radius:8px;padding:8px 10px;color:#c4b5fd;font-size:13px;outline:none;"></div>
+      </div>
+      <div style="margin-bottom:16px;"><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">BLOCKER REASON</label>
+      <input id="se-blocker" value="${t.blocker_reason||''}" placeholder="What's blocking?" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;"></div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;">
+        <button onclick="document.getElementById('su-edit-overlay').remove()" style="padding:8px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+        <button onclick="suSaveEdit('${taskId}')" style="padding:8px 16px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Save Changes</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ol);
+}
+function suSaveEdit(taskId){
+  db.update(taskId,{
+    title:document.getElementById('se-title').value.trim(),
+    status:document.getElementById('se-status').value,
+    priority:document.getElementById('se-pri').value,
+    assignee_id:document.getElementById('se-dev').value,
+    module:document.getElementById('se-mod').value,
+    medium:document.getElementById('se-med').value||null,
+    edd:document.getElementById('se-edd-m').value||null,
+    edd_sm:document.getElementById('se-edd-sm').value||null,
+    blocker_reason:document.getElementById('se-blocker').value||null,
+  });
+  document.getElementById('su-edit-overlay').remove();
+  toast('✅ Task updated');renderSU();render();
+}
+
+// ── SUMMARY ───────────────────────────────────────────────
+function showSummary(){
+  const tasks=db.tasks();
+  const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  let s='📋 DAILY SCRUM SUMMARY\n'+dateStr+'\n'+'─'.repeat(42)+'\n\n';
+  devs().forEach(dev=>{
+    const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
+    s+='👤 '+dev.name+'\n';
+    dt.forEach(t=>{
+      const edd=t.edd_sm||t.edd;
+      const ico={todo:'⬜',in_progress:'🔵',blocked:'🚫',done:'✅'}[t.status]||'⬜';
+      const p=autoProg(t);
+      s+=`  ${ico} [${t.priority}] ${t.title}`;
+      if(t.module)s+=` (${t.module})`;
+      if(t.medium)s+=` [${t.medium}]`;
+      if(edd)s+=` · EDD: ${fdate(edd)}`;
+      if(p)s+=` · ${p}%`;
+      if(t.status==='blocked')s+=` ⚠️ ${t.blocker_reason||''}`;
+      s+='\n';
+    });
+    s+='\n';
+  });
+  s+='─\nGenerated by ScrumBoard';
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-hdr"><h3>📤 Share Daily Summary</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div class="summ-box" id="sbox">${s}</div>
+    <div style="display:flex;gap:8px;margin-top:12px;">
+      <button class="btn btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('sbox').textContent).then(()=>toast('📋 Copied!'))">📋 Copy</button>
+      <button class="btn btn-primary" onclick="toast('📨 Posted to Google Chat!');closeModal()">📨 Post to Google Chat</button>
+    </div>`;
+  document.getElementById('moverlay').style.display='flex';
+}
+
+// ── SEED DATA ─────────────────────────────────────────────
+async function seed(){
+  showLoading('Setting up sample tasks…');
+  const samples=[
+    {title:'Curated Seller landing page redesign',type:'feature',priority:'P1',assignee_id:'u7',module:'Curated Seller',medium:'Desktop+Msite',edd:addDays(2),status:'in_progress',description:'Redesign landing page with new UI guidelines.',subtasks:[{id:'s1',title:'Wireframes approval',assignee_id:'u7',edd:addDays(-1),status:'done'},{id:'s2',title:'Desktop implementation',assignee_id:'u7',edd:addDays(1),status:'in_progress'},{id:'s3',title:'Msite responsive',assignee_id:'u7',edd:addDays(2),status:'todo'}]},
+    {title:'RFQ payment failure bug',type:'bug',priority:'P1',assignee_id:'u8',module:'RFQ',medium:'Desktop',edd:addDays(-2),status:'blocked',blocker_reason:'Waiting on Payment Protection team API keys for staging'},
+    {title:'TrustSeal badge UI update',type:'feature',priority:'P2',assignee_id:'u9',module:'TrustSeal',medium:'Desktop+Msite',edd:addDays(4),status:'in_progress',subtasks:[{id:'s4',title:'Badge SVG assets',assignee_id:'u9',edd:addDays(1),status:'done'},{id:'s5',title:'Desktop integration',assignee_id:'u9',edd:addDays(3),status:'in_progress'},{id:'s6',title:'Msite integration',assignee_id:'u9',edd:addDays(4),status:'todo'}]},
+    {title:'Optimisation — Msite page load speed',type:'optimisation',priority:'P2',assignee_id:'u10',module:'Optimisation',medium:'Msite',edd:addDays(5),status:'todo'},
+    {title:'BuyerTools search filter UX',type:'feature',priority:'P3',assignee_id:'u11',module:'BuyerTools',medium:'Desktop',edd:addDays(6),status:'todo'},
+    {title:'Payment Protection checkout bug',type:'bug',priority:'P2',assignee_id:'u12',module:'Payment Protection',medium:'Desktop',edd:addDays(1),status:'in_progress',description:'Payment step 2 fails silently on slow connections.'},
+    {title:'UI/UX — Reports dashboard redesign',type:'feature',priority:'P1',assignee_id:'u13',module:'UI/UX',medium:'Desktop',edd:addDays(-3),status:'done',progress:100},
+    {title:'RFQ — buyer notifications',type:'feature',priority:'P2',assignee_id:'u14',module:'RFQ',medium:'Msite',edd:addDays(7),status:'todo',subtasks:[{id:'s7',title:'Notification trigger logic',assignee_id:'u14',edd:addDays(4),status:'todo'},{id:'s8',title:'UI notification panel',assignee_id:'u14',edd:addDays(6),status:'todo'}]},
+    {title:'Curated Seller API null pointer',type:'bug',priority:'P1',assignee_id:'u5',module:'Curated Seller',medium:'Desktop',edd:addDays(0),status:'blocked',blocker_reason:'Unclear requirement — awaiting PM clarification'},
+    {title:'Msite lazy load images',type:'optimisation',priority:'P3',assignee_id:'u6',module:'Optimisation',medium:'Msite',edd:addDays(12),status:'todo',is_carried:true},
+    {title:'BuyerTools compare page',type:'feature',priority:'P3',assignee_id:'u8',module:'BuyerTools',medium:'Desktop+Msite',edd:addDays(9),status:'todo'},
+    {title:'TrustSeal verification flow',type:'feature',priority:'P1',assignee_id:'u9',module:'TrustSeal',medium:'Desktop',edd:addDays(3),status:'in_progress'},
+  ];
+  const now=new Date().toISOString();
+  const prepared=samples.map((s,i)=>({
+    ...s,
+    id:'t'+Date.now().toString(36)+(i+10).toString(36),
+    created_by:'u2',
+    comments:[],
+    activity:[{uid:'u2',action:'Created task',at:now}],
+    progress:s.progress||0,
+    is_carried:s.is_carried||false,
+    subtasks:s.subtasks||[],
+    created_at:now,updated_at:now
+  }));
+  try{
+    await SB.post(prepared);
+    const data=await SB.get();
+    S.tasks=Array.isArray(data)?data:prepared;
+  }catch(e){S.tasks=prepared;}
+  hideLoading();
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';
+  setTimeout(()=>t.style.display='none',2500);
+}
+
+// ── BOOT ──────────────────────────────────────────────────
+(function(){
+  document.getElementById('l-email').focus();
+})();
+</script>
+</body>
+</html>
