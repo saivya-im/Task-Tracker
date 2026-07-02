@@ -846,30 +846,100 @@ function saveBugCount(devId,field,value){
 function renderSprint(){
   const tasks=db.tasks();
   const done=tasks.filter(t=>t.status==='done'),carried=tasks.filter(t=>t.is_carried);
+  // Global bug totals from bug_counts table
+  let gBugTotal=0,gBugResolved=0,gBugRemaining=0;
+  devs().forEach(dev=>{
+    const bc=S.bugCounts[dev.id]||{total:0,resolved:0};
+    gBugTotal+=bc.total;gBugResolved+=bc.resolved;
+  });
+  gBugRemaining=Math.max(0,gBugTotal-gBugResolved);
   document.getElementById('content').innerHTML=`
     <div class="stats-row">
-      <div class="stat-card"><h4>Total</h4><div class="stat-num">${tasks.length}</div></div>
+      <div class="stat-card"><h4>Total Tasks</h4><div class="stat-num">${tasks.length}</div><div class="stat-sub">this sprint</div></div>
       <div class="stat-card"><h4>Completed</h4><div class="stat-num" style="color:var(--done)">${done.length}</div><div class="stat-sub">${tasks.length?Math.round(done.length/tasks.length*100):0}% velocity</div></div>
-      <div class="stat-card"><h4>Bugs Fixed</h4><div class="stat-num" style="color:var(--blue)">${done.filter(t=>t.type==='bug').length}</div></div>
+      <div class="stat-card"><h4>Bugs Remaining</h4><div class="stat-num" style="color:#ef4444">${gBugRemaining}</div><div class="stat-sub">of ${gBugTotal} total</div></div>
       <div class="stat-card"><h4>Carried Over</h4><div class="stat-num" style="color:#9333ea">${carried.length}</div></div>
     </div>
-    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:12px;">Per Developer</div>
-    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
-      ${devs().map(dev=>{
-        const dt=tasks.filter(t=>t.assignee_id===dev.id);
-        const dc=dt.filter(t=>t.status==='done');
-        const pct=dt.length?Math.round(dc.length/dt.length*100):0;
-        return`<div class="stat-card">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-            <div class="uav" style="width:28px;height:28px;font-size:10px;background:${dev.color}">${av(dev)}</div>
-            <span style="font-size:13px;font-weight:700;">${dev.name.split(' ')[0]}</span>
+    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:14px;">Developer Overview</div>
+    ${devs().map(dev=>{
+      const dt=tasks.filter(t=>t.assignee_id===dev.id);
+      const dc=dt.filter(t=>t.status==='done');
+      const dBlocked=dt.filter(t=>t.status==='blocked');
+      const pct=dt.length?Math.round(dc.length/dt.length*100):0;
+      const pcolor=pct===100?'#22c55e':pct>=60?'#3b82f6':'#f59e0b';
+      // Bug tracker counts (from bug_counts table)
+      const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
+      const bcRemaining=Math.max(0,bc.total-bc.resolved);
+      const bcPct=bc.total?Math.round(bc.resolved/bc.total*100):0;
+      // Dashboard bugs (individual bug tasks)
+      const dbBugs=dt.filter(t=>t.type==='bug');
+      const dbBugsDone=dbBugs.filter(t=>t.status==='done');
+      const dbBugsOpen=dbBugs.filter(t=>t.status!=='done');
+      // Availability signal
+      const isBlocked=dBlocked.length>0;
+      const isOverloaded=dt.filter(t=>t.status!=='done').length>=5;
+      const isClear=dt.length===0;
+      const avail=isClear?{label:'Free',color:'#22c55e',bg:'#dcfce7'}:isBlocked?{label:'Blocked',color:'#ef4444',bg:'#fee2e2'}:isOverloaded?{label:'Overloaded',color:'#f59e0b',bg:'#fef3c7'}:{label:'Active',color:'#3b82f6',bg:'#dbeafe'};
+      return`<div style="background:#fff;border-radius:12px;padding:16px 20px;border:1.5px solid var(--border);margin-bottom:10px;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div class="uav" style="width:36px;height:36px;font-size:13px;background:${dev.color}">${av(dev)}</div>
+          <div style="flex:1;">
+            <div style="font-size:14px;font-weight:800;">${dev.name}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:2px;">${dt.length} tasks · ${dc.length} done · ${dBlocked.length} blocked</div>
           </div>
-          <div style="font-size:11px;color:var(--text2);margin-bottom:8px;">${dc.length}/${dt.length} done · ${dt.filter(t=>t.type==='bug').length} bugs</div>
-          <div class="pbar"><div class="pfill" style="width:${pct}%;background:${progColor(pct)}"></div></div>
-          <div style="font-size:10px;color:var(--text2);margin-top:3px">${pct}% complete</div>
-        </div>`;
-      }).join('')}
-    </div>`;
+          <span style="background:${avail.bg};color:${avail.color};padding:3px 10px;border-radius:20px;font-size:11px;font-weight:800;">${avail.label}</span>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+          <!-- Task progress -->
+          <div style="background:#f8fafc;border-radius:8px;padding:12px;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:8px;">Task Progress</div>
+            <div style="font-size:20px;font-weight:800;color:${pcolor};margin-bottom:6px;">${pct}%</div>
+            <div class="pbar"><div class="pfill" style="width:${pct}%;background:${pcolor}"></div></div>
+            <div style="font-size:10px;color:var(--text2);margin-top:4px;">${dc.length}/${dt.length} completed</div>
+          </div>
+          <!-- Bug tracker (from bug_counts table) -->
+          <div style="background:#fff5f5;border-radius:8px;padding:12px;border:1px solid #fecaca;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#ef4444;margin-bottom:8px;">🐛 Bug Tracker</div>
+            <div style="display:flex;gap:8px;margin-bottom:6px;">
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:16px;font-weight:800;color:#3b82f6;">${bc.total}</div>
+                <div style="font-size:9px;color:var(--text2);">Total</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:16px;font-weight:800;color:#22c55e;">${bc.resolved}</div>
+                <div style="font-size:9px;color:var(--text2);">Resolved</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:16px;font-weight:800;color:${bcRemaining>0?'#ef4444':'#22c55e'};">${bcRemaining}</div>
+                <div style="font-size:9px;color:var(--text2);">Remaining</div>
+              </div>
+            </div>
+            <div class="pbar"><div class="pfill" style="width:${bcPct}%;background:${bcPct===100?'#22c55e':'#ef4444'}"></div></div>
+            <div style="font-size:10px;color:var(--text2);margin-top:4px;">${bc.closed||0} closed by tester</div>
+          </div>
+          <!-- Dashboard bug tasks -->
+          <div style="background:#fafcff;border-radius:8px;padding:12px;border:1px solid #dbeafe;">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#3b82f6;margin-bottom:8px;">📋 Task Bugs</div>
+            ${dbBugs.length===0?`<div style="font-size:12px;color:var(--text2);padding-top:4px;">No bug tasks added</div>`:`
+            <div style="display:flex;gap:8px;margin-bottom:6px;">
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:16px;font-weight:800;color:#f59e0b;">${dbBugsOpen.length}</div>
+                <div style="font-size:9px;color:var(--text2);">Open</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:16px;font-weight:800;color:#22c55e;">${dbBugsDone.length}</div>
+                <div style="font-size:9px;color:var(--text2);">Fixed</div>
+              </div>
+              <div style="flex:1;text-align:center;">
+                <div style="font-size:16px;font-weight:800;color:#ef4444;">${dbBugs.filter(t=>t.status==='blocked').length}</div>
+                <div style="font-size:9px;color:var(--text2);">Blocked</div>
+              </div>
+            </div>
+            <div style="font-size:10px;color:var(--text2);">${dbBugs.length} bug task${dbBugs.length!==1?'s':''} total</div>`}
+          </div>
+        </div>
+      </div>`;
+    }).join('')}`;
 }
 
 // ── DRAWER ────────────────────────────────────────────────
