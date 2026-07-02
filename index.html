@@ -1303,3 +1303,20 @@ async function seed(){
     await SB.post(prepared);
     const data=await SB.get();
     S.tasks=Array.isArray(data)?data:prepared;
+  }catch(e){S.tasks=prepared;}
+  hideLoading();
+}
+
+// ── TOAST ─────────────────────────────────────────────────
+function toast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';
+  setTimeout(()=>t.style.display='none',2500);
+}
+
+// ── BOOT ──────────────────────────────────────────────────
+(function(){
+  document.getElementById('l-email').focus();
+})();
+</script>
+</body>
+</html>
