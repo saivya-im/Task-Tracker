@@ -423,13 +423,16 @@ const db={
   },
 
   async refresh(){
-    // Silent background refresh
     setSyncDot('syncing');
     try{
       const data=await SB.get();
       S.tasks=Array.isArray(data)?data:[];
       render();
-      if(S.openTask) openDrawer(S.openTask);
+      // Only re-render drawer if user is NOT actively typing a comment
+      if(S.openTask){
+        const cmtInput=document.getElementById('cmti-'+S.openTask);
+        if(!cmtInput||document.activeElement!==cmtInput) openDrawer(S.openTask);
+      }
     }catch(e){}
     setSyncDot('live');
   },
@@ -437,7 +440,6 @@ const db={
   createTask(t){
     t.id='t'+Date.now().toString(36)+Math.random().toString(36).slice(2,5);
     t.created_at=t.updated_at=new Date().toISOString();
-    t.activity=[{uid:S.user.id,action:'Created task',at:new Date().toISOString()}];
     t.comments=[];t.subtasks=t.subtasks||[];t.progress=0;t.is_carried=false;
     S.tasks.push(t);
     SB.post(t);
@@ -446,13 +448,7 @@ const db={
 
   update(id,changes){
     const idx=S.tasks.findIndex(t=>t.id===id);if(idx<0)return;
-    const old=S.tasks[idx];const acts=[];
-    if(changes.status&&changes.status!==old.status)acts.push('Status → '+slabel(changes.status));
-    if(changes.edd_sm!==undefined&&changes.edd_sm!==old.edd_sm)acts.push('EDD adjusted → '+fdate(changes.edd_sm)+' (SM)');
-    if(changes.progress!==undefined&&changes.progress!==old.progress)acts.push('Progress → '+changes.progress+'%');
-    if(changes.assignee_id&&changes.assignee_id!==old.assignee_id)acts.push('Reassigned → '+(uid(changes.assignee_id)?.name||'?'));
     Object.assign(S.tasks[idx],changes,{updated_at:new Date().toISOString()});
-    if(acts.length) S.tasks[idx].activity=[...(S.tasks[idx].activity||[]),...acts.map(a=>({uid:S.user.id,action:a,at:new Date().toISOString()}))];
     SB.patch(id,S.tasks[idx]);
     return S.tasks[idx];
   },
@@ -784,7 +780,10 @@ function renderBugSummary(){
         <div class="stat-sub">with dev to fix</div>
       </div>
     </div>
-    <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:14px;">Per Developer — click fields to update</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);">Per Developer — click fields to update</div>
+      <button onclick="archiveClosedTasks()" style="padding:6px 12px;background:#fdf4ff;color:#9333ea;border:1.5px solid #e9d5ff;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">🗂 Archive Closed Tasks</button>
+    </div>
     ${targetDevs.map(dev=>{
       const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
       const rem=Math.max(0,bc.total-bc.resolved);
@@ -822,14 +821,26 @@ function renderBugSummary(){
             <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Remaining</div>
             <div id="rem-${dev.id}" style="font-size:18px;font-weight:800;padding:7px 0;color:${rem>0?'#ef4444':'#22c55e'};">${rem}</div>
           </div>
+          <div>
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Yesterday</div>
+            <div style="font-size:18px;font-weight:800;padding:7px 0;color:var(--text2);">${bc.yesterday_remaining!=null?bc.yesterday_remaining:'—'}</div>
+            <div style="font-size:9px;color:var(--text2);">end of day</div>
+          </div>
         </div>
+        ${(bc.yesterday_remaining!=null&&rem!==bc.yesterday_remaining)?`<div style="margin-top:8px;font-size:11px;padding:5px 10px;border-radius:6px;background:${rem<bc.yesterday_remaining?'#dcfce7':'#fee2e2'};color:${rem<bc.yesterday_remaining?'#16a34a':'#ef4444'};font-weight:700;">${rem<bc.yesterday_remaining?'✅ Fixed '+(bc.yesterday_remaining-rem)+' bug(s) since yesterday':'⚠️ '+(rem-bc.yesterday_remaining)+' new bug(s) since yesterday'}</div>`:''}
         ${bc.notes!==undefined?`<div style="margin-top:10px;"><input type="text" placeholder="Add notes…" value="${bc.notes||''}" onchange="saveBugCount('${dev.id}','notes',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"></div>`:''}
       </div>`;
     }).join('')}`;
 }
 
 function saveBugCount(devId,field,value){
-  const cur=S.bugCounts[devId]||{dev_id:devId,total:0,resolved:0,closed:0,notes:''};
+  const cur=S.bugCounts[devId]||{dev_id:devId,total:0,resolved:0,closed:0,notes:'',yesterday_remaining:null};
+  // Auto-snapshot yesterday_remaining once per day on first update
+  const lastDate=(cur.updated_at||'').slice(0,10);
+  const todayDate=new Date().toISOString().slice(0,10);
+  if(lastDate&&lastDate!==todayDate&&cur.yesterday_remaining==null){
+    cur.yesterday_remaining=Math.max(0,(cur.total||0)-(cur.resolved||0));
+  }
   cur[field]=field==='notes'?value:Math.max(0,parseInt(value)||0);
   cur.dev_id=devId;
   cur.updated_at=new Date().toISOString();
@@ -1052,13 +1063,6 @@ function openDrawer(taskId){
             <div><div class="cmt-name">${cu?.name||'?'} · ${fdate(c.at)}</div><div class="cmt-text">${c.text}</div></div>
           </div>`;}).join('')}
       </div>
-      <div class="sep"></div>
-      <div class="dsec">
-        <div class="dsec-title">Activity Log</div>
-        ${(t.activity||[]).slice().reverse().map(a=>{
-          const au=uid(a.uid);
-          return`<div class="act-item"><span><b>${au?.name||'System'}</b> — ${a.action}</span><span>${fdate(a.at)}</span></div>`;}).join('')}
-      </div>
     </div>`;
   document.getElementById('doverlay').style.display='block';
   setTimeout(()=>document.getElementById('drawer').classList.add('open'),10);
@@ -1080,8 +1084,28 @@ function closeDrawer(){
 function editEDD(id){
   const t=db.tasks().find(x=>x.id===id);
   const cur=t.edd_sm||t.edd||'';
-  const v=prompt(`Adjust EDD\nManager set: ${fdate(t.edd)||'Not set'}\nCurrent: ${fdate(cur)||'Not set'}\n\nEnter new date (YYYY-MM-DD):`,cur);
+  const ol=document.createElement('div');
+  ol.id='edd-overlay';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:700;display:flex;align-items:center;justify-content:center;';
+  ol.innerHTML=`<div style="background:#fff;border-radius:14px;padding:24px;width:340px;box-shadow:0 24px 64px rgba(0,0,0,.2);">
+    <div style="font-size:15px;font-weight:800;margin-bottom:4px;">📅 Adjust EDD</div>
+    <div style="font-size:12px;color:var(--text2);margin-bottom:16px;">Manager set: <b>${fdate(t.edd)||'Not set'}</b></div>
+    <div style="margin-bottom:16px;">
+      <label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">NEW DATE</label>
+      <input type="date" id="edd-pick" value="${cur}" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:14px;outline:none;color:var(--text);">
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button onclick="document.getElementById('edd-overlay').remove()" style="padding:8px 14px;background:var(--bg);border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+      <button onclick="saveEDD('${id}')" style="padding:8px 14px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Save</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ol);
+  setTimeout(()=>document.getElementById('edd-pick').focus(),50);
+}
+function saveEDD(id){
+  const v=document.getElementById('edd-pick').value;
   if(!v)return;
+  document.getElementById('edd-overlay').remove();
   db.update(id,{edd_sm:v});
   toast('📅 EDD adjusted');openDrawer(id);render();
 }
@@ -1463,7 +1487,7 @@ async function seed(){
     ...s,
     id:'t'+Date.now().toString(36)+(i+10).toString(36),
     created_by:'u2',comments:[],
-    activity:[{uid:'u2',action:'Created task',at:now}],
+
     progress:s.progress||0,is_carried:s.is_carried||false,
     subtasks:s.subtasks||[],created_at:now,updated_at:now
   }));
