@@ -386,6 +386,7 @@ const USERS=[
   {id:'u3',password:'Abir#Board26',role:'manager',name:'Abir Soni',color:'#9333ea'},
   {id:'u4',password:'Kuma#Sprint26',role:'manager',name:'Kumar Himanshu',color:'#6d28d9'},
   {id:'u15',password:'Moha#Lead2026',role:'manager',name:'Mohak',color:'#0f766e'},
+  {id:'u16',password:'Kani#Mgr2026',role:'manager',name:'Kanika',color:'#c026d3'},
   {id:'u5',password:'Avin#Stand26',role:'scrum_master',name:'Avinash Gummadi',color:'#1d4ed8',also_dev:true},
   {id:'u6',password:'Saiv#Daily26',role:'scrum_master',name:'Saivya Gulati',color:'#0891b2',also_dev:true},
   {id:'u7',password:'Shre#Code2026',role:'developer',name:'Shreenath Asati',color:'#0d9488'},
@@ -961,7 +962,7 @@ function openDrawer(taskId){
   const eff=t.edd_sm||t.edd,br=isBreached(t);
   const p=autoProg(t),r=S.user.role;
   const canEDD=r==='scrum_master'||r==='manager';
-  const canProg=r!=='developer'||t.assignee_id===S.user.id;
+  const canProg=r==='manager'||r==='scrum_master';
   document.getElementById('drawer').innerHTML=`
     <div class="dwr-hdr">
       <div>
