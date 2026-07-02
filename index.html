@@ -336,6 +336,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="su-ftr-info" id="su-info"></div>
     <div style="display:flex;gap:8px;">
       <button class="btn btn-secondary btn-sm" onclick="suPrev()">← Prev</button>
+      <button onclick="suNewTask()" style="padding:5px 13px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">+ New Task</button>
       <button class="btn btn-primary btn-sm" id="su-next" onclick="suNext()">Next →</button>
     </div>
   </div>
@@ -1161,6 +1162,106 @@ function suNext(){if(S.suIdx>=suDevs.length-1){closeStandup();return;}S.suIdx++;
 function suPrev(){if(S.suIdx<=0)return;S.suIdx--;renderSU();}
 function closeStandup(){document.getElementById('standup').style.display='none';}
 
+function suNewTask(){
+  const curDev=suDevs[S.suIdx];
+  const ol=document.createElement('div');
+  ol.id='su-new-overlay';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1100;display:flex;align-items:center;justify-content:center;';
+  ol.innerHTML=`
+    <div style="background:#1e293b;border:1px solid rgba(255,255,255,.12);border-radius:14px;padding:24px;width:520px;max-height:88vh;overflow-y:auto;">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+        <div style="color:#fff;font-size:15px;font-weight:800;">+ New Task</div>
+        <button onclick="document.getElementById('su-new-overlay').remove()" style="background:rgba(255,255,255,.1);border:none;border-radius:6px;color:rgba(255,255,255,.7);font-size:16px;cursor:pointer;padding:2px 8px;">✕</button>
+      </div>
+      ${suField('Title *','sn-title','text','Task title…')}
+      ${suField('Description','sn-desc','text','Optional context…')}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">TYPE</label>
+          <select id="sn-type" style="${suSelStyle()}">
+            <option value="feature" style="background:#1e293b">✨ Feature</option>
+            <option value="bug" style="background:#1e293b">🐛 Bug</option>
+            <option value="optimisation" style="background:#1e293b">⚡ Optimisation</option>
+            <option value="ad-hoc" style="background:#1e293b">🔀 Ad-hoc</option>
+            <option value="chore" style="background:#1e293b">🔧 Chore</option>
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">PRIORITY</label>
+          <select id="sn-pri" style="${suSelStyle()}">
+            <option value="P1" style="background:#1e293b">P1 — Critical</option>
+            <option value="P2" style="background:#1e293b">P2 — Medium</option>
+            <option value="P3" selected style="background:#1e293b">P3 — Low</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">MODULE</label>
+          <select id="sn-mod" style="${suSelStyle()}">
+            <option value="" style="background:#1e293b">— None —</option>
+            ${MODULES.map(m=>`<option value="${m}" style="background:#1e293b">${m}</option>`).join('')}
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">MEDIUM</label>
+          <select id="sn-med" style="${suSelStyle()}">
+            <option value="" style="background:#1e293b">— None —</option>
+            ${MEDIUMS.map(m=>`<option value="${m}" style="background:#1e293b">${m}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">ASSIGN TO</label>
+          <select id="sn-dev" style="${suSelStyle()}">
+            ${devs().map(d=>`<option value="${d.id}" ${d.id===curDev.id?'selected':''} style="background:#1e293b">${d.name}</option>`).join('')}
+          </select>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">EDD</label>
+          <input type="date" id="sn-edd" style="${suInpStyle()}">
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:4px;">
+        <button onclick="document.getElementById('su-new-overlay').remove()" style="padding:8px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+        <button onclick="suSubmitNewTask()" style="padding:8px 16px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Create Task</button>
+      </div>
+    </div>`;
+  document.body.appendChild(ol);
+}
+
+function suField(label,id,type,ph){
+  return`<div style="margin-bottom:12px;">
+    <label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">${label.toUpperCase()}</label>
+    <input type="${type}" id="${id}" placeholder="${ph}" style="${suInpStyle()}">
+  </div>`;
+}
+function suInpStyle(){return'width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;';}
+function suSelStyle(){return'width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;';}
+
+function suSubmitNewTask(){
+  const title=document.getElementById('sn-title').value.trim();
+  if(!title){alert('Title is required');return;}
+  db.createTask({
+    title,
+    description:document.getElementById('sn-desc').value,
+    type:document.getElementById('sn-type').value,
+    priority:document.getElementById('sn-pri').value,
+    module:document.getElementById('sn-mod').value,
+    medium:document.getElementById('sn-med').value||null,
+    assignee_id:document.getElementById('sn-dev').value,
+    edd:document.getElementById('sn-edd').value||null,
+    sprint_src:'ad-hoc',
+    status:'todo',
+    created_by:S.user.id,
+    subtasks:[]
+  });
+  document.getElementById('su-new-overlay').remove();
+  toast('✅ Task created');
+  renderSU();render();
+}
+
 // ── STANDUP TASK EDIT ─────────────────────────────────────
 function suEditTask(taskId){
   const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
@@ -1228,95 +1329,4 @@ function suSaveEdit(taskId){
     priority:document.getElementById('se-pri').value,
     assignee_id:document.getElementById('se-dev').value,
     module:document.getElementById('se-mod').value,
-    medium:document.getElementById('se-med').value||null,
-    edd:document.getElementById('se-edd-m').value||null,
-    edd_sm:document.getElementById('se-edd-sm').value||null,
-    blocker_reason:document.getElementById('se-blocker').value||null,
-  });
-  document.getElementById('su-edit-overlay').remove();
-  toast('✅ Task updated');renderSU();render();
-}
-
-// ── SUMMARY ───────────────────────────────────────────────
-function showSummary(){
-  const tasks=db.tasks();
-  const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  let s='📋 DAILY SCRUM SUMMARY\n'+dateStr+'\n'+'─'.repeat(42)+'\n\n';
-  devs().forEach(dev=>{
-    const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
-    s+='👤 '+dev.name+'\n';
-    dt.forEach(t=>{
-      const edd=t.edd_sm||t.edd;
-      const ico={todo:'⬜',in_progress:'🔵',blocked:'🚫',done:'✅'}[t.status]||'⬜';
-      const p=autoProg(t);
-      s+=`  ${ico} [${t.priority}] ${t.title}`;
-      if(t.module)s+=` (${t.module})`;
-      if(t.medium)s+=` [${t.medium}]`;
-      if(edd)s+=` · EDD: ${fdate(edd)}`;
-      if(p)s+=` · ${p}%`;
-      if(t.status==='blocked')s+=` ⚠️ ${t.blocker_reason||''}`;
-      s+='\n';
-    });
-    s+='\n';
-  });
-  s+='─\nGenerated by ScrumBoard';
-  document.getElementById('modal').innerHTML=`
-    <div class="modal-hdr"><h3>📤 Share Daily Summary</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
-    <div class="summ-box" id="sbox">${s}</div>
-    <div style="display:flex;gap:8px;margin-top:12px;">
-      <button class="btn btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('sbox').textContent).then(()=>toast('📋 Copied!'))">📋 Copy</button>
-      <button class="btn btn-primary" onclick="toast('📨 Posted to Google Chat!');closeModal()">📨 Post to Google Chat</button>
-    </div>`;
-  document.getElementById('moverlay').style.display='flex';
-}
-
-// ── SEED DATA ─────────────────────────────────────────────
-async function seed(){
-  showLoading('Setting up sample tasks…');
-  const samples=[
-    {title:'Curated Seller landing page redesign',type:'feature',priority:'P1',assignee_id:'u7',module:'Curated Seller',medium:'Desktop+Msite',edd:addDays(2),status:'in_progress',description:'Redesign landing page with new UI guidelines.',subtasks:[{id:'s1',title:'Wireframes approval',assignee_id:'u7',edd:addDays(-1),status:'done'},{id:'s2',title:'Desktop implementation',assignee_id:'u7',edd:addDays(1),status:'in_progress'},{id:'s3',title:'Msite responsive',assignee_id:'u7',edd:addDays(2),status:'todo'}]},
-    {title:'RFQ payment failure bug',type:'bug',priority:'P1',assignee_id:'u8',module:'RFQ',medium:'Desktop',edd:addDays(-2),status:'blocked',blocker_reason:'Waiting on Payment Protection team API keys for staging'},
-    {title:'TrustSeal badge UI update',type:'feature',priority:'P2',assignee_id:'u9',module:'TrustSeal',medium:'Desktop+Msite',edd:addDays(4),status:'in_progress',subtasks:[{id:'s4',title:'Badge SVG assets',assignee_id:'u9',edd:addDays(1),status:'done'},{id:'s5',title:'Desktop integration',assignee_id:'u9',edd:addDays(3),status:'in_progress'},{id:'s6',title:'Msite integration',assignee_id:'u9',edd:addDays(4),status:'todo'}]},
-    {title:'Optimisation — Msite page load speed',type:'optimisation',priority:'P2',assignee_id:'u10',module:'Optimisation',medium:'Msite',edd:addDays(5),status:'todo'},
-    {title:'BuyerTools search filter UX',type:'feature',priority:'P3',assignee_id:'u11',module:'BuyerTools',medium:'Desktop',edd:addDays(6),status:'todo'},
-    {title:'Payment Protection checkout bug',type:'bug',priority:'P2',assignee_id:'u12',module:'Payment Protection',medium:'Desktop',edd:addDays(1),status:'in_progress',description:'Payment step 2 fails silently on slow connections.'},
-    {title:'UI/UX — Reports dashboard redesign',type:'feature',priority:'P1',assignee_id:'u13',module:'UI/UX',medium:'Desktop',edd:addDays(-3),status:'done',progress:100},
-    {title:'RFQ — buyer notifications',type:'feature',priority:'P2',assignee_id:'u14',module:'RFQ',medium:'Msite',edd:addDays(7),status:'todo',subtasks:[{id:'s7',title:'Notification trigger logic',assignee_id:'u14',edd:addDays(4),status:'todo'},{id:'s8',title:'UI notification panel',assignee_id:'u14',edd:addDays(6),status:'todo'}]},
-    {title:'Curated Seller API null pointer',type:'bug',priority:'P1',assignee_id:'u5',module:'Curated Seller',medium:'Desktop',edd:addDays(0),status:'blocked',blocker_reason:'Unclear requirement — awaiting PM clarification'},
-    {title:'Msite lazy load images',type:'optimisation',priority:'P3',assignee_id:'u6',module:'Optimisation',medium:'Msite',edd:addDays(12),status:'todo',is_carried:true},
-    {title:'BuyerTools compare page',type:'feature',priority:'P3',assignee_id:'u8',module:'BuyerTools',medium:'Desktop+Msite',edd:addDays(9),status:'todo'},
-    {title:'TrustSeal verification flow',type:'feature',priority:'P1',assignee_id:'u9',module:'TrustSeal',medium:'Desktop',edd:addDays(3),status:'in_progress'},
-  ];
-  const now=new Date().toISOString();
-  const prepared=samples.map((s,i)=>({
-    ...s,
-    id:'t'+Date.now().toString(36)+(i+10).toString(36),
-    created_by:'u2',
-    comments:[],
-    activity:[{uid:'u2',action:'Created task',at:now}],
-    progress:s.progress||0,
-    is_carried:s.is_carried||false,
-    subtasks:s.subtasks||[],
-    created_at:now,updated_at:now
-  }));
-  try{
-    await SB.post(prepared);
-    const data=await SB.get();
-    S.tasks=Array.isArray(data)?data:prepared;
-  }catch(e){S.tasks=prepared;}
-  hideLoading();
-}
-
-// ── TOAST ─────────────────────────────────────────────────
-function toast(msg){
-  const t=document.getElementById('toast');t.textContent=msg;t.style.display='block';
-  setTimeout(()=>t.style.display='none',2500);
-}
-
-// ── BOOT ──────────────────────────────────────────────────
-(function(){
-  document.getElementById('l-email').focus();
-})();
-</script>
-</body>
-</html>
+    medium:document.getElementById('se-med').v
