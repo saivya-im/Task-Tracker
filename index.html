@@ -398,7 +398,7 @@ const USERS=[
   {id:'u13',password:'Sank#Ship2026',role:'developer',name:'Sanket Dawar',color:'#0369a1'},
   {id:'u14',password:'Subo#Deploy26',role:'developer',name:'Subodh Kumar Pandey',color:'#be185d'},
 ];
-const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports'];
+const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports','KYS'];
 const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
 
 // ── STATE ─────────────────────────────────────────────────
@@ -975,7 +975,9 @@ function openDrawer(taskId){
         </div>
       </div>
       <div style="display:flex;gap:6px;align-items:center;">
-        ${r==='scrum_master'||r==='manager'?`<button onclick="deleteTask('${t.id}')" style="padding:5px 10px;background:#fee2e2;color:#ef4444;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">🗑 Delete</button>`:''}
+        ${r==='scrum_master'||r==='manager'?`
+          <button onclick="suEditTask('${t.id}')" style="padding:5px 10px;background:#eff6ff;color:#2563eb;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✏️ Edit</button>
+          <button onclick="deleteTask('${t.id}')" style="padding:5px 10px;background:#fee2e2;color:#ef4444;border:none;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">🗑 Delete</button>`:''}
         <button class="dwr-close" onclick="closeDrawer()">✕</button>
       </div>
     </div>
@@ -1372,6 +1374,14 @@ function suEditTask(taskId){
       <div style="margin-bottom:12px;"><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">TITLE</label>
       <input id="se-title" value="${t.title}" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;"></div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">TYPE</label>
+        <select id="se-type" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
+          <option value="feature" ${t.type==='feature'?'selected':''} style="background:#1e293b">✨ Feature</option>
+          <option value="bug" ${t.type==='bug'?'selected':''} style="background:#1e293b">🐛 Bug</option>
+          <option value="optimisation" ${t.type==='optimisation'?'selected':''} style="background:#1e293b">⚡ Optimisation</option>
+          <option value="ad-hoc" ${t.type==='ad-hoc'?'selected':''} style="background:#1e293b">🔀 Ad-hoc</option>
+          <option value="chore" ${t.type==='chore'?'selected':''} style="background:#1e293b">🔧 Chore</option>
+        </select></div>
         <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">STATUS</label>
         <select id="se-status" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
           <option value="todo" ${t.status==='todo'?'selected':''} style="background:#1e293b">To Do</option>
@@ -1379,6 +1389,8 @@ function suEditTask(taskId){
           <option value="blocked" ${t.status==='blocked'?'selected':''} style="background:#1e293b">Blocked</option>
           <option value="done" ${t.status==='done'?'selected':''} style="background:#1e293b">Done</option>
         </select></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">PRIORITY</label>
         <select id="se-pri" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
           <option value="P1" ${t.priority==='P1'?'selected':''} style="background:#1e293b">P1</option>
@@ -1420,6 +1432,7 @@ function suEditTask(taskId){
 function suSaveEdit(taskId){
   db.update(taskId,{
     title:document.getElementById('se-title').value.trim(),
+    type:document.getElementById('se-type').value,
     status:document.getElementById('se-status').value,
     priority:document.getElementById('se-pri').value,
     assignee_id:document.getElementById('se-dev').value,
@@ -1430,7 +1443,10 @@ function suSaveEdit(taskId){
     blocker_reason:document.getElementById('se-blocker').value||null,
   });
   document.getElementById('su-edit-overlay').remove();
-  toast('✅ Task updated');renderSU();render();
+  toast('✅ Task updated');
+  render();
+  if(S.view==='standup') renderSU();
+  if(S.openTask===taskId) openDrawer(taskId);
 }
 
 // ── SUMMARY ───────────────────────────────────────────────
