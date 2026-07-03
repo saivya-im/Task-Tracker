@@ -773,17 +773,23 @@ function renderBugSummary(){
   const canEdit=r==='scrum_master'||r==='developer'||r==='manager';
   const targetDevs=r==='developer'?devs().filter(d=>d.id===S.user.id):devs();
   // Totals across all devs
-  let gTotal=0,gResolved=0,gClosed=0;
+  let gTotal=0,gResolved=0,gClosed=0,gYest=0;
   targetDevs.forEach(dev=>{
     const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
     gTotal+=bc.total;gResolved+=bc.resolved;gClosed+=bc.closed;
+    if(bc.yesterday_remaining!=null)gYest+=bc.yesterday_remaining;
   });
   const gRemaining=Math.max(0,gTotal-gResolved);
+  const hasYest=targetDevs.some(d=>(S.bugCounts[d.id]||{}).yesterday_remaining!=null);
+  const diff=gRemaining-gYest;
+  const diffTag=hasYest?`<div style="margin-top:6px;font-size:11px;font-weight:700;color:${diff<0?'#16a34a':diff>0?'#ef4444':'#64748b'};">${diff<0?'▼ '+Math.abs(diff)+' fixed since yesterday':diff>0?'▲ '+diff+' new since yesterday':'= No change'}</div>`:'';
+  const yesterdayTag=(label,yval)=>hasYest?`<div style="margin-top:4px;font-size:11px;color:#94a3b8;">Yesterday: <b>${yval}</b></div>`:'';
   document.getElementById('content').innerHTML=`
     <div class="stats-row">
       <div class="stat-card" style="border-left:4px solid #3b82f6">
         <h4>Total Bugs</h4><div class="stat-num" style="color:#3b82f6">${gTotal}</div>
         <div class="stat-sub">across team</div>
+        ${hasYest?`<div style="margin-top:4px;font-size:11px;color:#94a3b8;">Yesterday remaining: <b>${gYest}</b></div>`:''}
       </div>
       <div class="stat-card" style="border-left:4px solid #22c55e">
         <h4>Resolved by Dev</h4><div class="stat-num" style="color:#22c55e">${gResolved}</div>
@@ -796,6 +802,7 @@ function renderBugSummary(){
       <div class="stat-card" style="border-left:4px solid #ef4444">
         <h4>Remaining</h4><div class="stat-num" style="color:#ef4444">${gRemaining}</div>
         <div class="stat-sub">with dev to fix</div>
+        ${diffTag}
       </div>
     </div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
