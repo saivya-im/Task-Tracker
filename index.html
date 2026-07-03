@@ -1834,6 +1834,44 @@ function showSummary(){
   document.getElementById('moverlay').style.display='flex';
 }
 
+async function postToGChat(){
+  const btn=document.getElementById('gchat-btn');
+  if(btn){btn.textContent='Sending…';btn.disabled=true;}
+  const tasks=db.tasks();
+  const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  // Build Google Chat card message
+  const sections=[];
+  devs().forEach(dev=>{
+    const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
+    const rows=dt.map(t=>{
+      const edd=t.edd_sm||t.edd;
+      const statusIco={todo:'📥',in_progress:'🔵',done:'✅',blocked:'🚫',discussion:'💬',dependant:'🔗',dropped:'🗑'}[t.status]||'📌';
+      let line=`${statusIco} *[${t.priority}]* ${t.title}`;
+      if(t.module)line+=` · _${t.module}_`;
+      if(edd)line+=` · EDD: ${fdate(edd)}`;
+      if(t.ticket_id)line+=` · \`${t.ticket_id}\``;
+      if(t.remark)line+=` — ${t.remark}`;
+      if(t.blocker_reason)line+=`\n  ⚠️ _${t.blocker_reason}_`;
+      return line;
+    }).join('\n');
+    sections.push({header:`👤 ${dev.name}`,widgets:[{textParagraph:{text:rows}}]});
+  });
+  const payload={
+    cards:[{
+      header:{title:'📋 Daily Scrum Summary',subtitle:dateStr,imageUrl:'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/sprint/default/48px.svg'},
+      sections
+    }]
+  };
+  try{
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(r.ok){toast('✅ Posted to Google Chat!');if(btn){btn.textContent='✅ Sent!';}}
+    else{const e=await r.json();toast('❌ Failed: '+(e.error||r.status));if(btn){btn.textContent='📨 Post to Google Chat';btn.disabled=false;}}
+  }catch(e){
+    toast('❌ Error: '+e.message);
+    if(btn){btn.textContent='📨 Post to Google Chat';btn.disabled=false;}
+  }
+}
+
 // ── SEED DATA ─────────────────────────────────────────────
 async function seed(){
   showLoading('Setting up sample tasks…');
