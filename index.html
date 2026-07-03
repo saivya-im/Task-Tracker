@@ -1842,30 +1842,23 @@ async function postToGChat(){
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   const slbl=s=>({todo:'To Pick',in_progress:'WIP',done:'Done',blocked:'Blocked',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s);
   const pad=(s,n)=>String(s||'—').substring(0,n).padEnd(n);
-  const W={dev:11,mod:14,task:36,pri:3,st:12,edd:7};
-  const rows=[];
+  const W={mod:13,task:35,pri:3,st:10,edd:7};
+  const hdr=`  ${pad('Module',W.mod)} | ${pad('Task',W.task)} | Pri | ${pad('Status',W.st)} | EDD`;
+  const sep=`  ${'-'.repeat(W.mod)}-+-${'-'.repeat(W.task)}-+-----+-${'-'.repeat(W.st)}-+--------`;
+  const sections=[];
   devs().forEach(dev=>{
     const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
-    dt.forEach(t=>{
+    const rows=dt.map(t=>{
       const edd=t.edd_sm||t.edd;
       let taskStr=t.title;
-      if(t.blocker_reason)taskStr+=` [!${t.blocker_reason}]`;
-      rows.push([dev.name.split(' ')[0],t.module||'—',taskStr,t.priority||'—',slbl(t.status),edd?fdate(edd):'—']);
-    });
+      if(t.blocker_reason)taskStr+=` [! ${t.blocker_reason}]`;
+      return `  ${pad(t.module||'—',W.mod)} | ${pad(taskStr,W.task)} | ${pad(t.priority||'—',W.pri)} | ${pad(slbl(t.status),W.st)} | ${edd?fdate(edd):'—'}`;
+    }).join('\n');
+    sections.push(`👤 *${dev.name}*\n\`\`\`\n${hdr}\n${sep}\n${rows}\n\`\`\``);
   });
-  const hdr=`${pad('Developer',W.dev)} | ${pad('Module',W.mod)} | ${pad('Task',W.task)} | Pri | ${pad('Status',W.st)} | EDD`;
-  const sep=`${'-'.repeat(W.dev)}-+-${'-'.repeat(W.mod)}-+-${'-'.repeat(W.task)}-+-----+-${'-'.repeat(W.st)}-+--------`;
-  const body=rows.map(r=>`${pad(r[0],W.dev)} | ${pad(r[1],W.mod)} | ${pad(r[2],W.task)} | ${pad(r[3],3)}  | ${pad(r[4],W.st)} | ${r[5]}`).join('
-');
-  const total=rows.length;
+  const total=tasks.length;
   const devCount=devs().filter(d=>tasks.some(t=>t.assignee_id===d.id)).length;
-  const text=`📋 *Daily Scrum Summary — ${dateStr}*
-_${total} tasks across ${devCount} developers_
-\`\`\`
-${hdr}
-${sep}
-${body}
-\`\`\``;
+  const text=`📋 *Daily Scrum Summary — ${dateStr}*\n_${total} tasks · ${devCount} developers_\n\n${sections.join('\n\n')}`;
   try{
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
     if(r.ok){toast('✅ Posted to Google Chat!');if(btn){btn.textContent='✅ Sent!';}}
