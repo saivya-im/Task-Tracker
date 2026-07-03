@@ -90,10 +90,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* CHIPS */
 .chip{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;white-space:nowrap;}
-.ch-todo{background:#f1f5f9;color:#64748b;}
+.ch-todo{background:#fef9c3;color:#854d0e;}
 .ch-in_progress{background:#dbeafe;color:#2563eb;}
 .ch-blocked{background:#fee2e2;color:#ef4444;}
 .ch-done{background:#dcfce7;color:#16a34a;}
+.ch-discussion{background:#ccfbf1;color:#0f766e;}
+.ch-dependant{background:#ede9fe;color:#7c3aed;}
+.ch-dropped{background:#ffedd5;color:#c2410c;}
 .ch-P1{background:#fee2e2;color:#dc2626;}
 .ch-P2{background:#fef3c7;color:#d97706;}
 .ch-P3{background:#f1f5f9;color:#64748b;}
@@ -476,8 +479,8 @@ function av(u){return u?u.name.split(' ').map(n=>n[0]).join('').slice(0,2):'?';}
 function fdate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
 function today(){return new Date().toISOString().split('T')[0];}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
-function slabel(s){return{todo:'To Do',in_progress:'In Progress',blocked:'Blocked',done:'Done'}[s]||s;}
-function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',blocked:'ch-blocked',done:'ch-done'}[s]||'ch-todo';}
+function slabel(s){return{todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s;}
+function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped'}[s]||'ch-todo';}
 function isBreached(t){const e=t.edd_sm||t.edd;if(!e||t.status==='done')return false;return new Date(e)<new Date(today());}
 function isAging(t){if(t.status!=='in_progress')return false;return(Date.now()-new Date(t.updated_at||t.created_at))/(864e5)>=3;}
 function progColor(p){return p>=80?'#22c55e':p>=40?'#3b82f6':'#f59e0b';}
@@ -538,6 +541,7 @@ function buildNav(){
     items.push({id:'my-tasks',icon:'✅',label:'My Tasks'});
     items.push({id:'board',icon:'📋',label:'Team Board'});
   }
+  if(r==='manager'||r==='scrum_master')items.push({id:'table',icon:'📊',label:'Table View'});
   items.push({id:'bugs',icon:'🐛',label:'Bug Summary'});
   items.push({id:'sprint',icon:'📊',label:'Sprint Summary'});
   document.getElementById('snav').innerHTML=items.map(it=>`
@@ -554,7 +558,7 @@ function nav(view){
 }
 
 function render(){
-  const titles={board:'Board',workload:'Workload','my-tasks':'My Tasks',bugs:'Bug Summary',sprint:'Sprint Summary'};
+  const titles={board:'Board',workload:'Workload','my-tasks':'My Tasks',bugs:'Bug Summary',sprint:'Sprint Summary',table:'Table View'};
   document.getElementById('pg-title').textContent=titles[S.view]||'';
   document.getElementById('pg-sub').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   document.getElementById('pg-actions').innerHTML='';
@@ -564,6 +568,7 @@ function render(){
   else if(S.view==='my-tasks')renderMyTasks();
   else if(S.view==='bugs')renderBugSummary();
   else if(S.view==='sprint')renderSprint();
+  else if(S.view==='table')renderTable();
 }
 
 // ── BOARD ─────────────────────────────────────────────────
@@ -584,7 +589,7 @@ function renderBoard(){
       <select id="fp" onchange="rbc()"><option value="">All Priorities</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select>
       <select id="fm" onchange="rbc()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
       <select id="fmed" onchange="rbc()"><option value="">All Mediums</option>${MEDIUMS.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
-      <select id="fo" onchange="rbc()"><option value="">All Tasks</option><option value="overdue">Overdue</option><option value="carried">Carried Over</option><option value="blocked">Blocked</option></select>
+      <select id="fo" onchange="rbc()"><option value="">All Tasks</option><option value="overdue">Overdue</option><option value="carried">Carried Over</option><option value="blocked">Blocked</option><option value="dependant">Dependant</option><option value="discussion">Discussion</option><option value="dropped">Dropped</option></select>
     </div>
     <div id="brd"></div>`;
   const _f=S.filters;
@@ -612,6 +617,9 @@ function filtered(){
     if(f.o==='overdue'&&!isBreached(t))return false;
     if(f.o==='carried'&&!t.is_carried)return false;
     if(f.o==='blocked'&&t.status!=='blocked')return false;
+    if(f.o==='dependant'&&t.status!=='dependant')return false;
+    if(f.o==='discussion'&&t.status!=='discussion')return false;
+    if(f.o==='dropped'&&t.status!=='dropped')return false;
     return true;
   });
 }
@@ -619,13 +627,13 @@ function filtered(){
 function rbc(){
   const el=document.getElementById('brd');if(!el)return;
   const tasks=filtered();
-  const stats=['todo','in_progress','blocked','done'];
-  const labels={todo:'To Do',in_progress:'In Progress',blocked:'Blocked',done:'Done'};
+  const stats=['todo','in_progress','discussion','dependant','blocked','dropped','done'];
+  const labels={todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'};
   el.innerHTML='<div class="board">'+stats.map(s=>{
     const ts=tasks.filter(t=>t.status===s);
     return`<div class="board-col">
       <div class="board-col-hdr">
-        <span class="bcol-title" style="color:${s==='blocked'?'var(--blocked)':s==='done'?'var(--done)':s==='in_progress'?'var(--inprog)':'var(--text2)'}">${labels[s]}</span>
+        <span class="bcol-title" style="color:${s==='blocked'||s==='dropped'?'var(--blocked)':s==='done'?'var(--done)':s==='in_progress'?'var(--inprog)':s==='discussion'?'#0f766e':s==='dependant'?'#7c3aed':s==='todo'?'#92400e':'var(--text2)'}">${labels[s]}</span>
         <span class="bcol-count">${ts.length}</span>
       </div>
       ${ts.map(t=>tcardHTML(t)).join('')}
@@ -736,10 +744,13 @@ function devRow(t){
     </div>
     <div class="dr-actions">
       <select class="status-sel" onchange="devStatus('${t.id}',this.value)">
-        <option value="todo" ${t.status==='todo'?'selected':''}>To Do</option>
-        <option value="in_progress" ${t.status==='in_progress'?'selected':''}>In Progress</option>
-        <option value="blocked" ${t.status==='blocked'?'selected':''}>Blocked</option>
-        <option value="done" ${t.status==='done'?'selected':''}>Done</option>
+        <option value="todo" ${t.status==='todo'?'selected':''}>📥 To be Picked</option>
+        <option value="in_progress" ${t.status==='in_progress'?'selected':''}>🔵 WIP</option>
+        <option value="discussion" ${t.status==='discussion'?'selected':''}>💬 Discussion</option>
+        <option value="dependant" ${t.status==='dependant'?'selected':''}>🔗 Dependant</option>
+        <option value="blocked" ${t.status==='blocked'?'selected':''}>🚫 Blocked</option>
+        <option value="dropped" ${t.status==='dropped'?'selected':''}>🗑 Dropped</option>
+        <option value="done" ${t.status==='done'?'selected':''}>✅ Done</option>
       </select>
       ${t.status!=='blocked'?`<button class="blocker-btn" onclick="markBlocked('${t.id}')">🚫</button>`:''}
       <button class="info-btn" onclick="openDrawer('${t.id}')">ⓘ</button>
@@ -838,6 +849,119 @@ function renderBugSummary(){
       </div>`;
     }).join('')}`;
 }
+
+// ── TABLE VIEW ───────────────────────────────────────────────────
+function renderTable(){
+  const r=S.user.role;
+  const act=document.getElementById('pg-actions');
+  act.innerHTML=`<span id="sync-dot" class="sync-dot" title="Live sync"></span>`;
+  if(r==='manager'||r==='scrum_master')act.innerHTML+=`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Task</button>`;
+  const tasks=db.tasks();
+  const c=document.getElementById('content');
+  // Sort state
+  if(!S.tblSort)S.tblSort={col:'created_at',dir:-1};
+  // Filter bar (reuse board filters)
+  c.innerHTML=`
+    <div class="filter-bar" style="margin-bottom:14px;">
+      <input type="text" id="tfs" placeholder="🔍 Search…" oninput="renderTable()" style="width:160px;">
+      <select id="tfd" onchange="renderTable()"><option value="">All Developers</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
+      <select id="tft" onchange="renderTable()"><option value="">All Types</option><option value="feature">✨ Feature</option><option value="bug">🐛 Bug</option><option value="optimisation">⚡ Optimisation</option><option value="ad-hoc">🔀 Ad-hoc</option><option value="chore">🔧 Chore</option></select>
+      <select id="tfs2" onchange="renderTable()"><option value="">All Statuses</option><option value="todo">To be Picked</option><option value="in_progress">WIP</option><option value="discussion">Discussion</option><option value="dependant">Dependant</option><option value="blocked">Blocked</option><option value="dropped">Dropped</option><option value="done">Done</option></select>
+      <select id="tfm" onchange="renderTable()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+    </div>
+    <div id="tbl-wrap" style="overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);"></div>`;
+
+  // Restore saved table filters
+  const tf=S.tblFilters||{};
+  const _s=(id,v)=>{const e=document.getElementById(id);if(e&&v)e.value=v;};
+  _s('tfs',tf.s);_s('tfd',tf.d);_s('tft',tf.t);_s('tfs2',tf.st);_s('tfm',tf.m);
+
+  // Read filters & save
+  const gv=id=>{const e=document.getElementById(id);return e?e.value:'';};
+  S.tblFilters={s:gv('tfs'),d:gv('tfd'),t:gv('tft'),st:gv('tfs2'),m:gv('tfm')};
+  const tf2=S.tblFilters;
+
+  let rows=tasks.filter(t=>{
+    if(tf2.s&&!t.title.toLowerCase().includes(tf2.s.toLowerCase()))return false;
+    if(tf2.d&&t.assignee_id!==tf2.d)return false;
+    if(tf2.t&&t.type!==tf2.t)return false;
+    if(tf2.st&&t.status!==tf2.st)return false;
+    if(tf2.m&&t.module!==tf2.m)return false;
+    return true;
+  });
+
+  // Sort
+  const sc=S.tblSort.col,sd=S.tblSort.dir;
+  rows.sort((a,b)=>{
+    let av=a[sc]||'',bv=b[sc]||'';
+    if(sc==='created_at'||sc==='edd'){av=av?new Date(av).getTime():0;bv=bv?new Date(bv).getTime():0;}
+    return av<bv?-1*sd:av>bv?1*sd:0;
+  });
+
+  const sortIcon=col=>S.tblSort.col===col?(S.tblSort.dir===1?'▲':'▼'):'⇅';
+  const thStyle='padding:10px 12px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);white-space:nowrap;cursor:pointer;user-select:none;border-bottom:1.5px solid var(--border);background:#f8fafc;';
+  const tdStyle='padding:10px 12px;font-size:12px;color:var(--text);border-bottom:1px solid var(--border);vertical-align:middle;';
+
+  function sortBy(col){S.tblSort=S.tblSort.col===col?{col,dir:-S.tblSort.dir}:{col,dir:1};renderTable();}
+
+  const assigneeName=id=>{const u=uid(id);return u?u.name.split(' ')[0]:'—';};
+
+  const statusDropdown=(t)=>`<select onchange="db.update('${t.id}',{status:this.value});renderTable()" style="border:1.5px solid var(--border);border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;outline:none;cursor:pointer;background:transparent;appearance:none;-webkit-appearance:none;color:inherit;" class="${schip(t.status)}">
+    <option value="todo" ${t.status==='todo'?'selected':''}>📥 To be Picked</option>
+    <option value="in_progress" ${t.status==='in_progress'?'selected':''}>🔵 WIP</option>
+    <option value="discussion" ${t.status==='discussion'?'selected':''}>💬 Discussion</option>
+    <option value="dependant" ${t.status==='dependant'?'selected':''}>🔗 Dependant</option>
+    <option value="blocked" ${t.status==='blocked'?'selected':''}>🚫 Blocked</option>
+    <option value="dropped" ${t.status==='dropped'?'selected':''}>🗑 Dropped</option>
+    <option value="done" ${t.status==='done'?'selected':''}>✅ Done</option>
+  </select>`;
+
+  document.getElementById('tbl-wrap').innerHTML=`
+  <table style="width:100%;border-collapse:collapse;background:#fff;">
+    <thead>
+      <tr>
+        <th style="${thStyle}" onclick="sortBy('created_at')">Date ${sortIcon('created_at')}</th>
+        <th style="${thStyle}" onclick="sortBy('module')">Module ${sortIcon('module')}</th>
+        <th style="${thStyle}" onclick="sortBy('title')">Item ${sortIcon('title')}</th>
+        <th style="${thStyle}" onclick="sortBy('assignee_id')">Assignee ${sortIcon('assignee_id')}</th>
+        <th style="${thStyle}">Status</th>
+        <th style="${thStyle}" onclick="sortBy('edd')">EDD ${sortIcon('edd')}</th>
+        <th style="${thStyle}" onclick="sortBy('priority')">Priority ${sortIcon('priority')}</th>
+        <th style="${thStyle}" onclick="sortBy('ticket_id')">Ticket ID ${sortIcon('ticket_id')}</th>
+        <th style="${thStyle}">Remark</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${rows.length===0?`<tr><td colspan="9" style="text-align:center;padding:32px;color:var(--text2);">No tasks found</td></tr>`
+        :rows.map(t=>{
+          const edd=t.edd_sm||t.edd;
+          const br=isBreached(t);
+          const a=uid(t.assignee_id);
+          const dateStr=t.created_at?new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}):'—';
+          return`<tr onclick="openDrawer('${t.id}')" style="cursor:pointer;transition:background .12s;" onmouseover="this.style.background='#f8fafc'" onmouseout="this.style.background=''">
+            <td style="${tdStyle}white-space:nowrap;color:var(--text2);font-size:11px;">${dateStr}</td>
+            <td style="${tdStyle}">${t.module?`<span style="font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:10px;">${t.module}</span>`:'—'}</td>
+            <td style="${tdStyle}max-width:260px;">
+              <div style="font-weight:600;line-height:1.4;">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>
+              ${t.blocker_reason?`<div style="font-size:10px;color:var(--blocked);margin-top:2px;">🚫 ${t.blocker_reason}</div>`:''}
+            </td>
+            <td style="${tdStyle}">
+              <div style="display:flex;align-items:center;gap:6px;" onclick="event.stopPropagation()">
+                ${(t.assignee_id?[t.assignee_id]:[]).concat(t.co_assignees||[]).filter(Boolean).map(id=>{const u=uid(id);return u?`<div style="width:24px;height:24px;border-radius:50%;background:${u.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;" title="${u.name}">${av(u)}</div>`:''}).join('')}
+                <span style="font-size:12px;">${a?a.name.split(' ')[0]:'—'}</span>
+              </div>
+            </td>
+            <td style="${tdStyle}" onclick="event.stopPropagation()">${statusDropdown(t)}</td>
+            <td style="${tdStyle}white-space:nowrap;${br?'color:var(--blocked);font-weight:700;':''}">${edd?fdate(edd)+(br?' ⚠️':''):'—'}</td>
+            <td style="${tdStyle}"><span class="chip ch-${t.priority}">${t.priority||'—'}</span></td>
+            <td style="${tdStyle}"><span style="font-family:monospace;font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${t.ticket_id||'—'}</span></td>
+            <td style="${tdStyle}color:var(--text2);font-size:11px;max-width:180px;">${t.remark||'—'}</td>
+          </tr>`;
+        }).join('')}
+    </tbody>
+  </table>`;
+}
+
 
 function saveBugCount(devId,field,value){
   const cur=S.bugCounts[devId]||{dev_id:devId,total:0,resolved:0,closed:0,notes:'',yesterday_remaining:null};
@@ -994,6 +1118,8 @@ function openDrawer(taskId){
           <div class="meta-item"><label>Module</label><p>${t.module||'—'}</p></div>
           <div class="meta-item"><label>Medium</label><p>${t.medium||'—'}</p></div>
           <div class="meta-item"><label>Created By</label><p>${cb?cb.name:'—'}</p></div>
+          ${t.ticket_id?`<div class="meta-item"><label>Ticket ID</label><p><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${t.ticket_id}</span></p></div>`:''}
+          ${t.remark?`<div class="meta-item" style="grid-column:1/-1"><label>Remark</label><p>${t.remark}</p></div>`:''}
           <div class="meta-item">
             <label>Manager EDD</label>
             <p ${t.edd&&br&&!t.edd_sm?'style="color:var(--blocked)"':''}>${fdate(t.edd)}</p>
@@ -1166,6 +1292,8 @@ function showTaskModal(){
     <div class="fr">
       <div class="fg"><label>Assignee</label><select id="m-dev"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select></div>
       <div class="fg"><label>EDD</label><input type="date" id="m-edd"/></div>
+      <div class="fg"><label>Ticket ID</label><input type="text" id="m-ticket" placeholder="e.g. JIRA-1234"/></div>
+      <div class="fg"><label>Remark</label><input type="text" id="m-remark" placeholder="Short note or dependency info"/></div>
     </div>
     <div class="fg"><label>Task Source</label><select id="m-src"><option value="sprint">Sprint (Monday planned)</option><option value="ad-hoc">Mid-week Ad-hoc</option></select></div>
     <div class="sep"></div>
@@ -1202,7 +1330,7 @@ function submitTask(){
     const t=row.querySelector('.str-t').value.trim();
     if(t)subtasks.push({id:'st'+Date.now()+Math.random(),title:t,assignee_id:row.querySelector('.str-a').value||document.getElementById('m-dev').value,edd:row.querySelector('.str-e').value||null,status:'todo'});
   });
-  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,status:'todo',created_by:S.user.id,subtasks});
+  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:document.getElementById('m-ticket').value||null,remark:document.getElementById('m-remark').value||null,status:'todo',created_by:S.user.id,subtasks});
   closeModal();toast('✅ Task created');render();
 }
 
@@ -1419,10 +1547,13 @@ function suEditTask(taskId){
         </select></div>
         <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">STATUS</label>
         <select id="se-status" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
-          <option value="todo" ${t.status==='todo'?'selected':''} style="background:#1e293b">To Do</option>
-          <option value="in_progress" ${t.status==='in_progress'?'selected':''} style="background:#1e293b">In Progress</option>
-          <option value="blocked" ${t.status==='blocked'?'selected':''} style="background:#1e293b">Blocked</option>
-          <option value="done" ${t.status==='done'?'selected':''} style="background:#1e293b">Done</option>
+          <option value="todo" ${t.status==='todo'?'selected':''} style="background:#1e293b">📥 To be Picked</option>
+          <option value="in_progress" ${t.status==='in_progress'?'selected':''} style="background:#1e293b">🔵 WIP</option>
+          <option value="discussion" ${t.status==='discussion'?'selected':''} style="background:#1e293b">💬 Discussion</option>
+          <option value="dependant" ${t.status==='dependant'?'selected':''} style="background:#1e293b">🔗 Dependant</option>
+          <option value="blocked" ${t.status==='blocked'?'selected':''} style="background:#1e293b">🚫 Blocked</option>
+          <option value="dropped" ${t.status==='dropped'?'selected':''} style="background:#1e293b">🗑 Dropped</option>
+          <option value="done" ${t.status==='done'?'selected':''} style="background:#1e293b">✅ Done</option>
         </select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
@@ -1455,8 +1586,14 @@ function suEditTask(taskId){
         <div><label style="font-size:11px;font-weight:700;color:#c4b5fd;display:block;margin-bottom:5px;">SM EDD OVERRIDE</label>
         <input type="date" id="se-edd-sm" value="${t.edd_sm||''}" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(196,181,253,.4);border-radius:8px;padding:8px 10px;color:#c4b5fd;font-size:13px;outline:none;"></div>
       </div>
-      <div style="margin-bottom:16px;"><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">BLOCKER REASON</label>
-      <input id="se-blocker" value="${t.blocker_reason||''}" placeholder="What's blocking?" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">TICKET ID</label>
+        <input id="se-ticket" value="${t.ticket_id||''}" placeholder="JIRA-1234" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;"></div>
+        <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">BLOCKER REASON</label>
+        <input id="se-blocker" value="${t.blocker_reason||''}" placeholder="What's blocking?" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;"></div>
+      </div>
+      <div style="margin-bottom:16px;"><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">REMARK</label>
+      <input id="se-remark" value="${t.remark||''}" placeholder="Short note, dependency, context…" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:9px 12px;color:#fff;font-size:13px;outline:none;"></div>
       <div style="display:flex;gap:8px;justify-content:flex-end;">
         <button onclick="document.getElementById('su-edit-overlay').remove()" style="padding:8px 16px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:8px;color:rgba(255,255,255,.7);font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
         <button onclick="suSaveEdit('${taskId}')" style="padding:8px 16px;background:var(--blue);border:none;border-radius:8px;color:#fff;font-size:13px;font-weight:700;cursor:pointer;">Save Changes</button>
@@ -1476,6 +1613,8 @@ function suSaveEdit(taskId){
     edd:document.getElementById('se-edd-m').value||null,
     edd_sm:document.getElementById('se-edd-sm').value||null,
     blocker_reason:document.getElementById('se-blocker').value||null,
+    ticket_id:document.getElementById('se-ticket').value||null,
+    remark:document.getElementById('se-remark').value||null,
   });
   document.getElementById('su-edit-overlay').remove();
   toast('✅ Task updated');
