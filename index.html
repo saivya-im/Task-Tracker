@@ -1840,31 +1840,34 @@ async function postToGChat(){
   if(btn){btn.textContent='Sending…';btn.disabled=true;}
   const tasks=db.tasks();
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  // Build Google Chat card message
-  const sections=[];
+  const slbl=s=>({todo:'To Pick',in_progress:'WIP',done:'Done',blocked:'Blocked',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s);
+  const pad=(s,n)=>String(s||'—').substring(0,n).padEnd(n);
+  const W={dev:11,mod:14,task:36,pri:3,st:12,edd:7};
+  const rows=[];
   devs().forEach(dev=>{
     const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
-    const widgets=dt.map(t=>{
+    dt.forEach(t=>{
       const edd=t.edd_sm||t.edd;
-      const statusIco={todo:'📥',in_progress:'🔵',done:'✅',blocked:'🚫',discussion:'💬',dependant:'🔗',dropped:'🗑'}[t.status]||'📌';
-      let line=`${statusIco} <b>[${t.priority}]</b> ${t.title}`;
-      if(t.module)line+=` · <i>${t.module}</i>`;
-      if(edd)line+=` · EDD: ${fdate(edd)}`;
-      if(t.ticket_id)line+=` · ${t.ticket_id}`;
-      if(t.remark)line+=` — ${t.remark}`;
-      if(t.blocker_reason)line+=`<br>⚠️ <i>${t.blocker_reason}</i>`;
-      return {textParagraph:{text:line}};
+      let taskStr=t.title;
+      if(t.blocker_reason)taskStr+=` [!${t.blocker_reason}]`;
+      rows.push([dev.name.split(' ')[0],t.module||'—',taskStr,t.priority||'—',slbl(t.status),edd?fdate(edd):'—']);
     });
-    sections.push({header:`👤 ${dev.name}`,widgets});
   });
-  const payload={
-    cards:[{
-      header:{title:'📋 Daily Scrum Summary',subtitle:dateStr,imageUrl:'https://fonts.gstatic.com/s/i/short-term/release/materialsymbolsoutlined/sprint/default/48px.svg'},
-      sections
-    }]
-  };
+  const hdr=`${pad('Developer',W.dev)} | ${pad('Module',W.mod)} | ${pad('Task',W.task)} | Pri | ${pad('Status',W.st)} | EDD`;
+  const sep=`${'-'.repeat(W.dev)}-+-${'-'.repeat(W.mod)}-+-${'-'.repeat(W.task)}-+-----+-${'-'.repeat(W.st)}-+--------`;
+  const body=rows.map(r=>`${pad(r[0],W.dev)} | ${pad(r[1],W.mod)} | ${pad(r[2],W.task)} | ${pad(r[3],3)}  | ${pad(r[4],W.st)} | ${r[5]}`).join('
+');
+  const total=rows.length;
+  const devCount=devs().filter(d=>tasks.some(t=>t.assignee_id===d.id)).length;
+  const text=`📋 *Daily Scrum Summary — ${dateStr}*
+_${total} tasks across ${devCount} developers_
+\`\`\`
+${hdr}
+${sep}
+${body}
+\`\`\``;
   try{
-    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
     if(r.ok){toast('✅ Posted to Google Chat!');if(btn){btn.textContent='✅ Sent!';}}
     else{const e=await r.json();toast('❌ Failed: '+(e.error||r.status));if(btn){btn.textContent='📨 Post to Google Chat';btn.disabled=false;}}
   }catch(e){
