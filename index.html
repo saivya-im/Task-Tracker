@@ -398,11 +398,11 @@ const USERS=[
   {id:'u13',password:'Sank#Ship2026',role:'developer',name:'Sanket Dawar',color:'#0369a1'},
   {id:'u14',password:'Subo#Deploy26',role:'developer',name:'Subodh Kumar Pandey',color:'#be185d'},
 ];
-const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports','KYS'];
+const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports','KYS','Login','Seller Feed','VMS','Misc'];
 const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
 
 // ── STATE ─────────────────────────────────────────────────
-const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],bugCounts:{},refreshTimer:null};
+const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],bugCounts:{},refreshTimer:null,filters:{s:'',d:'',t:'',p:'',m:'',med:'',o:''}};
 
 // ── DB (Supabase-backed, in-memory cache) ─────────────────
 const db={
@@ -587,12 +587,17 @@ function renderBoard(){
       <select id="fo" onchange="rbc()"><option value="">All Tasks</option><option value="overdue">Overdue</option><option value="carried">Carried Over</option><option value="blocked">Blocked</option></select>
     </div>
     <div id="brd"></div>`;
+  const _f=S.filters;
+  const _s=(id,v)=>{const e=document.getElementById(id);if(e&&v)e.value=v;};
+  _s('fs',_f.s);_s('fd',_f.d);_s('ft',_f.t);_s('fp',_f.p);_s('fm',_f.m);_s('fmed',_f.med);_s('fo',_f.o);
   rbc();
 }
 
 function gf(){
   const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
-  return{s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo')};
+  const f={s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo')};
+  Object.assign(S.filters,f);
+  return f;
 }
 
 function filtered(){
@@ -1224,14 +1229,37 @@ function renderSU(){
   document.getElementById('su-info').textContent=(S.suIdx+1)+' of '+suDevs.length;
   document.getElementById('su-next').textContent=S.suIdx===suDevs.length-1?'✓ Finish':'Next →';
   document.getElementById('su-dots').innerHTML=suDevs.map((_,i)=>`<div class="su-dot ${i<S.suIdx?'done':i===S.suIdx?'cur':''}"></div>`).join('');
+  const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
+  const suRem=Math.max(0,(bc.total||0)-(bc.resolved||0));
   document.getElementById('su-side').innerHTML=`
     <div class="su-av" style="background:${dev.color}">${av(dev)}</div>
     <div class="su-name">${dev.name}</div>
     <div class="su-role">Developer</div>
-    <div class="su-summary" style="margin-top:18px;">
+    <div class="su-summary" style="margin-top:14px;">
       <p>✅ Done: <strong style="color:#22c55e">${done.length}</strong></p>
       <p>🔵 Active: <strong style="color:#3b82f6">${active.length}</strong></p>
       <p>🚫 Blocked: <strong style="color:#ef4444">${blk.length}</strong></p>
+    </div>
+    <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.1);padding-top:14px;">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.4);margin-bottom:10px;">🐛 Bug Tracker</div>
+      <div style="display:flex;flex-direction:column;gap:9px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:11px;color:rgba(255,255,255,.6);">Open (Total)</span>
+          <input type="number" min="0" value="${bc.total||0}" id="su-tot-${dev.id}" onchange="saveBugCount('${dev.id}','total',this.value);suRefreshRem('${dev.id}')" style="width:58px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:6px;padding:4px 7px;color:#fff;font-size:13px;font-weight:800;text-align:center;outline:none;">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:11px;color:rgba(255,255,255,.6);">Resolved</span>
+          <input type="number" min="0" value="${bc.resolved||0}" id="su-res-${dev.id}" onchange="saveBugCount('${dev.id}','resolved',this.value);suRefreshRem('${dev.id}')" style="width:58px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:6px;padding:4px 7px;color:#4ade80;font-size:13px;font-weight:800;text-align:center;outline:none;">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <span style="font-size:11px;color:rgba(255,255,255,.6);">Closed (QA)</span>
+          <input type="number" min="0" value="${bc.closed||0}" id="su-cls-${dev.id}" onchange="saveBugCount('${dev.id}','closed',this.value)" style="width:58px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:6px;padding:4px 7px;color:#38bdf8;font-size:13px;font-weight:800;text-align:center;outline:none;">
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(239,68,68,.1);border-radius:7px;padding:7px 10px;margin-top:2px;">
+          <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);">Remaining</span>
+          <span id="su-rem-${dev.id}" style="font-size:16px;font-weight:800;color:${suRem>0?'#f87171':'#4ade80'};">${suRem}</span>
+        </div>
+      </div>
     </div>`;
   function suTaskCard(t,cls=''){
     return`<div class="su-task ${cls}" style="position:relative;">
@@ -1257,6 +1285,13 @@ function renderSU(){
 }
 function suNext(){if(S.suIdx>=suDevs.length-1){closeStandup();return;}S.suIdx++;renderSU();}
 function suPrev(){if(S.suIdx<=0)return;S.suIdx--;renderSU();}
+function suRefreshRem(devId){
+  const tot=parseInt(document.getElementById('su-tot-'+devId)?.value||0);
+  const res=parseInt(document.getElementById('su-res-'+devId)?.value||0);
+  const rem=Math.max(0,tot-res);
+  const el=document.getElementById('su-rem-'+devId);
+  if(el){el.textContent=rem;el.style.color=rem>0?'#f87171':'#4ade80';}
+}
 function closeStandup(){document.getElementById('standup').style.display='none';}
 
 function suNewTask(){
