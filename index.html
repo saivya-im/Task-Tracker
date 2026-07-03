@@ -286,16 +286,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="login-logo-icon">🏃</div>
       <div><h1>ScrumBoard</h1><p>IndiaMart Daily Standup</p></div>
     </div>
-    <div class="fg"><label>First Name</label><input type="text" id="l-email" placeholder="Enter Name" autocomplete="off" onkeydown="if(event.key==='Enter')document.getElementById('l-pass').focus()"/></div>
+    <div class="fg">
+      <label>Select Your Name</label>
+      <select id="l-user" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;background:#fff;" onchange="document.getElementById('l-pass').focus()">
+        <option value="">— Who are you? —</option>
+      </select>
+    </div>
     <div class="fg">
       <label>Password</label>
-      <input type="text" id="l-pass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')login()" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;background:#fff;"/>
+      <input type="password" id="l-pass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;background:#fff;"/>
     </div>
-    <div class="err" id="l-err">Name or password not recognised.</div>
-    <button class="btn btn-primary btn-full" style="margin-top:6px" onclick="login()">Sign In →</button>
+    <div class="err" id="l-err">Incorrect password.</div>
+    <button class="btn btn-primary btn-full" style="margin-top:6px" id="l-btn" onclick="doLogin()">Sign In →</button>
     <div class="demo-hint">
-      <strong>Login with your first name</strong>
-      <span style="color:#94a3b8">Passwords shared separately · Case doesn't matter</span>
+      <strong>First time? You'll be prompted to set your password.</strong>
     </div>
   </div>
 </div>
@@ -378,6 +382,13 @@ const SB={
     if(!r.ok)return[];
     return r.json();
   },
+  async getPwd(userId){
+    try{const r=await fetch(this.url+'/rest/v1/user_passwords?user_id=eq.'+userId+'&select=password_hash',{headers:this.hdrs});
+    if(!r.ok)return null;const d=await r.json();return d[0]?.password_hash||null;}catch(e){return null;}
+  },
+  async setPwd(userId,hash){
+    return fetch(this.url+'/rest/v1/user_passwords',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:userId,password_hash:hash,updated_at:new Date().toISOString()})});
+  },
   async upsertBugCount(data){
     const payload=Object.fromEntries(Object.entries(data).filter(([,v])=>v!=null&&v!==undefined));
     return fetch(this.url+'/rest/v1/bug_counts',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
@@ -386,21 +397,21 @@ const SB={
 
 // ── USERS ─────────────────────────────────────────────────
 const USERS=[
-  {id:'u2',password:'Tarb#Scrum26',role:'manager',name:'Tarbrinder Singh',color:'#7c3aed'},
-  {id:'u3',password:'Abir#Board26',role:'manager',name:'Abir Soni',color:'#9333ea'},
-  {id:'u4',password:'Kuma#Sprint26',role:'manager',name:'Kumar Himanshu',color:'#6d28d9'},
-  {id:'u15',password:'Moha#Lead2026',role:'manager',name:'Mohak',color:'#0f766e'},
-  {id:'u16',password:'Kani#Mgr2026',role:'manager',name:'Kanika',color:'#c026d3'},
-  {id:'u5',password:'Avin#Stand26',role:'scrum_master',name:'Avinash Gummadi',color:'#1d4ed8',also_dev:true},
-  {id:'u6',password:'Saiv#Daily26',role:'scrum_master',name:'Saivya Gulati',color:'#0891b2',also_dev:true},
-  {id:'u7',password:'Shre#Code2026',role:'developer',name:'Shreenath Asati',color:'#0d9488'},
-  {id:'u8',password:'Aanc#Build26',role:'developer',name:'Aanchal Sharma',color:'#dc2626'},
-  {id:'u9',password:'Aayu#Push2026',role:'developer',name:'Aayushi Dangwal',color:'#d97706'},
-  {id:'u10',password:'Anju#Task2026',role:'developer',name:'Anjali Rana',color:'#16a34a'},
-  {id:'u11',password:'Gurt#Merge26',role:'developer',name:'Gurtej Singh Hud',color:'#9333ea'},
-  {id:'u12',password:'Hars#Pull2026',role:'developer',name:'Harshit Srivastava',color:'#b45309'},
-  {id:'u13',password:'Sank#Ship2026',role:'developer',name:'Sanket Dawar',color:'#0369a1'},
-  {id:'u14',password:'Subo#Deploy26',role:'developer',name:'Subodh Kumar Pandey',color:'#be185d'},
+  {id:'u2',role:'manager',name:'Tarbrinder Singh',color:'#7c3aed'},
+  {id:'u3',role:'manager',name:'Abir Soni',color:'#9333ea'},
+  {id:'u4',role:'manager',name:'Kumar Himanshu',color:'#6d28d9'},
+  {id:'u15',role:'manager',name:'Mohak',color:'#0f766e'},
+  {id:'u16',role:'manager',name:'Kanika',color:'#c026d3'},
+  {id:'u5',role:'scrum_master',name:'Avinash Gummadi',color:'#1d4ed8',also_dev:true},
+  {id:'u6',role:'scrum_master',name:'Saivya Gulati',color:'#0891b2',also_dev:true},
+  {id:'u7',role:'developer',name:'Shreenath Asati',color:'#0d9488'},
+  {id:'u8',role:'developer',name:'Aanchal Sharma',color:'#dc2626'},
+  {id:'u9',role:'developer',name:'Aayushi Dangwal',color:'#d97706'},
+  {id:'u10',role:'developer',name:'Anjali Rana',color:'#16a34a'},
+  {id:'u11',role:'developer',name:'Gurtej Singh Hud',color:'#9333ea'},
+  {id:'u12',role:'developer',name:'Harshit Srivastava',color:'#b45309'},
+  {id:'u13',role:'developer',name:'Sanket Dawar',color:'#0369a1'},
+  {id:'u14',role:'developer',name:'Subodh Kumar Pandey',color:'#be185d'},
 ];
 const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports','KYS','Login','Seller Feed','VMS','Misc'];
 const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
@@ -496,24 +507,132 @@ const TYPE_COLOR={feature:'#3b82f6',bug:'#ef4444',optimisation:'#f59e0b','ad-hoc
 function typeClass(tp){return tp==='bug'?'type-bug':tp==='feature'?'type-feature':(tp==='optimisation'||tp==='chore')?'type-optimisation':tp==='ad-hoc'?'type-ad-hoc':'';}
 
 // ── AUTH ──────────────────────────────────────────────────
-function login(){
-  const input=document.getElementById('l-email').value.trim().toLowerCase();
-  const pass=document.getElementById('l-pass').value.trim();
-  const u=USERS.find(u=>u.name.split(' ')[0].toLowerCase()===input&&u.password.toLowerCase()===pass.toLowerCase());
-  if(!u){document.getElementById('l-err').style.display='block';return;}
+async function hashPwd(pwd){
+  const enc=new TextEncoder();
+  const buf=await crypto.subtle.digest('SHA-256',enc.encode('scrumboard-im-2026-'+pwd));
+  return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function loginSetErr(msg){const e=document.getElementById('l-err');e.textContent=msg;e.style.display='block';}
+function loginClearErr(){document.getElementById('l-err').style.display='none';}
+function loginSetLoading(on){const b=document.getElementById('l-btn');if(b)b.textContent=on?'Checking…':'Sign In →';b.disabled=on;}
+
+async function doLogin(){
+  loginClearErr();
+  const userId=document.getElementById('l-user').value;
+  const pass=document.getElementById('l-pass').value;
+  if(!userId){loginSetErr('Please select your name.');return;}
+  if(!pass){loginSetErr('Please enter your password.');return;}
+  loginSetLoading(true);
+  const storedHash=await SB.getPwd(userId);
+  if(!storedHash){
+    // First time — no password set yet
+    loginSetLoading(false);
+    showSetPassword(userId,pass);
+    return;
+  }
+  const inputHash=await hashPwd(pass);
+  if(inputHash!==storedHash){
+    loginSetLoading(false);
+    loginSetErr('Incorrect password. Try again.');
+    return;
+  }
+  loginSetLoading(false);
+  const u=USERS.find(u=>u.id===userId);
   S.user=u;
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
+}
+
+function showSetPassword(userId,initialPass){
+  const u=USERS.find(u=>u.id===userId);
+  const ol=document.createElement('div');
+  ol.id='set-pwd-overlay';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  ol.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;width:360px;box-shadow:0 24px 64px rgba(0,0,0,.2);">
+    <div style="font-size:20px;margin-bottom:4px;">🔐 Set Your Password</div>
+    <div style="font-size:13px;color:#64748b;margin-bottom:20px;">Hi <b>${u?.name}</b>, this is your first login. Choose a personal password.</div>
+    <div class="fg"><label>New Password</label>
+    <input type="password" id="sp-new" placeholder="Enter new password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <div class="fg"><label>Confirm Password</label>
+    <input type="password" id="sp-confirm" placeholder="Confirm password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <div style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px;" id="sp-err"></div>
+    <button onclick="saveNewPassword('${userId}')" style="width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Set Password & Sign In</button>
+  </div>`;
+  document.body.appendChild(ol);
+  setTimeout(()=>document.getElementById('sp-new').focus(),50);
+}
+
+async function saveNewPassword(userId){
+  const np=document.getElementById('sp-new').value;
+  const cp=document.getElementById('sp-confirm').value;
+  const err=document.getElementById('sp-err');
+  if(np.length<6){err.textContent='Password must be at least 6 characters.';return;}
+  if(np!==cp){err.textContent='Passwords do not match.';return;}
+  err.textContent='Saving…';
+  const hash=await hashPwd(np);
+  await SB.setPwd(userId,hash);
+  document.getElementById('set-pwd-overlay').remove();
+  const u=USERS.find(u=>u.id===userId);
+  S.user=u;
+  document.getElementById('login-page').style.display='none';
+  document.getElementById('app').style.display='flex';
+  initApp();
+}
+
+async function changePassword(){
+  const u=S.user;
+  const ol=document.createElement('div');
+  ol.id='chpwd-overlay';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  ol.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;width:360px;box-shadow:0 24px 64px rgba(0,0,0,.2);">
+    <div style="font-size:18px;font-weight:800;margin-bottom:16px;">🔐 Change Password</div>
+    <div class="fg"><label>Current Password</label>
+    <input type="password" id="cp-cur" placeholder="Current password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <div class="fg"><label>New Password</label>
+    <input type="password" id="cp-new" placeholder="New password (min 6 chars)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <div class="fg"><label>Confirm New Password</label>
+    <input type="password" id="cp-cfm" placeholder="Confirm new password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <div style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px;" id="cp-err"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="document.getElementById('chpwd-overlay').remove()" style="flex:1;padding:10px;background:#f1f5f9;color:var(--text);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+      <button onclick="doChangePassword('${u.id}')" style="flex:1;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Update Password</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ol);
+  setTimeout(()=>document.getElementById('cp-cur').focus(),50);
+}
+
+async function doChangePassword(userId){
+  const cur=document.getElementById('cp-cur').value;
+  const np=document.getElementById('cp-new').value;
+  const cp=document.getElementById('cp-cfm').value;
+  const err=document.getElementById('cp-err');
+  if(!cur){err.textContent='Enter your current password.';return;}
+  if(np.length<6){err.textContent='New password must be at least 6 characters.';return;}
+  if(np!==cp){err.textContent='New passwords do not match.';return;}
+  err.textContent='Verifying…';
+  const storedHash=await SB.getPwd(userId);
+  const curHash=await hashPwd(cur);
+  if(storedHash&&curHash!==storedHash){err.textContent='Current password is incorrect.';return;}
+  err.textContent='Saving…';
+  const newHash=await hashPwd(np);
+  await SB.setPwd(userId,newHash);
+  document.getElementById('chpwd-overlay').remove();
+  toast('🔐 Password updated successfully');
 }
 function logout(){
   clearInterval(S.refreshTimer);
   S.user=null;S.tasks=[];
   document.getElementById('app').style.display='none';
   document.getElementById('login-page').style.display='flex';
-  document.getElementById('l-email').value='';
   document.getElementById('l-pass').value='';
   document.getElementById('l-err').style.display='none';
+}
+function populateLoginDropdown(){
+  const sel=document.getElementById('l-user');
+  if(!sel)return;
+  sel.innerHTML='<option value="">— Who are you? —</option>'+USERS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
 }
 
 async function initApp(){
@@ -1756,7 +1875,7 @@ function toast(msg){
 }
 
 // ── BOOT ──────────────────────────────────────────────────
-(function(){document.getElementById('l-email').focus();})();
+(function(){populateLoginDropdown();document.getElementById('l-user').focus();})();
 </script>
 </body>
 </html>
