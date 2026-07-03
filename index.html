@@ -1844,18 +1844,18 @@ async function postToGChat(){
   const sections=[];
   devs().forEach(dev=>{
     const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
-    const rows=dt.map(t=>{
+    const widgets=dt.map(t=>{
       const edd=t.edd_sm||t.edd;
       const statusIco={todo:'📥',in_progress:'🔵',done:'✅',blocked:'🚫',discussion:'💬',dependant:'🔗',dropped:'🗑'}[t.status]||'📌';
-      let line=`${statusIco} *[${t.priority}]* ${t.title}`;
-      if(t.module)line+=` · _${t.module}_`;
+      let line=`${statusIco} <b>[${t.priority}]</b> ${t.title}`;
+      if(t.module)line+=` · <i>${t.module}</i>`;
       if(edd)line+=` · EDD: ${fdate(edd)}`;
-      if(t.ticket_id)line+=` · \`${t.ticket_id}\``;
+      if(t.ticket_id)line+=` · ${t.ticket_id}`;
       if(t.remark)line+=` — ${t.remark}`;
-      if(t.blocker_reason)line+=`\n  ⚠️ _${t.blocker_reason}_`;
-      return line;
-    }).join('\n');
-    sections.push({header:`👤 ${dev.name}`,widgets:[{textParagraph:{text:rows}}]});
+      if(t.blocker_reason)line+=`<br>⚠️ <i>${t.blocker_reason}</i>`;
+      return {textParagraph:{text:line}};
+    });
+    sections.push({header:`👤 ${dev.name}`,widgets});
   });
   const payload={
     cards:[{
