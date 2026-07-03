@@ -1829,6 +1829,7 @@ function showSummary(){
     <div style="overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;max-height:65vh;overflow-y:auto;">${tbl}</div>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('smry-plain').value).then(()=>toast('📋 Copied!'))">📋 Copy as Text</button>
+      <button id="gchat-btn" class="btn btn-primary" onclick="postToGChat()">📨 Post to Google Chat</button>
     </div>
     <textarea id="smry-plain" style="position:absolute;left:-9999px;opacity:0;">${plain}</textarea>`;
   document.getElementById('moverlay').style.display='flex';
