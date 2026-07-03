@@ -379,7 +379,8 @@ const SB={
     return r.json();
   },
   async upsertBugCount(data){
-    return fetch(this.url+'/rest/v1/bug_counts',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(data)});
+    const payload=Object.fromEntries(Object.entries(data).filter(([,v])=>v!=null&&v!==undefined));
+    return fetch(this.url+'/rest/v1/bug_counts',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
   }
 };
 
@@ -979,7 +980,7 @@ function saveBugCount(devId,field,value){
   const rem=Math.max(0,cur.total-cur.resolved);
   const el=document.getElementById('rem-'+devId);
   if(el){el.textContent=rem;el.style.color=rem>0?'#ef4444':'#22c55e';}
-  SB.upsertBugCount(cur);
+  SB.upsertBugCount(cur).catch(()=>toast('⚠️ Save failed — check Supabase'));
   toast('🐛 Saved');
 }
 
