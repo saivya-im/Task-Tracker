@@ -354,7 +354,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="drawer"></div>
 
 <!-- MODAL -->
-<div id="moverlay" onclick="closeModal(event)"><div id="modal"></div></div>
+<div id="moverlay"><div id="modal"></div></div>
 
 <script>
 // ── SUPABASE CONFIG ───────────────────────────────────────
@@ -1842,12 +1842,12 @@ async function postToGChat(){
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   const slbl=s=>({todo:'To Pick',in_progress:'WIP',done:'Done',blocked:'Blocked',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s);
   const pad=(s,n)=>String(s||'—').substring(0,n).padEnd(n);
-  const W={mod:13,task:35,pri:3,st:10,edd:7};
+  const W={mod:12,task:30,pri:3,st:9,edd:6};
   const hdr=`  ${pad('Module',W.mod)} | ${pad('Task',W.task)} | Pri | ${pad('Status',W.st)} | EDD`;
-  const sep=`  ${'-'.repeat(W.mod)}-+-${'-'.repeat(W.task)}-+-----+-${'-'.repeat(W.st)}-+--------`;
+  const sep=`  ${'-'.repeat(W.mod)}-+-${'-'.repeat(W.task)}-+-----+-${'-'.repeat(W.st)}-+-------`;
   const sections=[];
   devs().forEach(dev=>{
-    const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
+    const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');if(!dt.length)return;
     const rows=dt.map(t=>{
       const edd=t.edd_sm||t.edd;
       let taskStr=t.title;
