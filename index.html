@@ -1854,16 +1854,16 @@ async function doSheetExport(url){
   const btn=document.querySelector('[onclick="copyToSheet()"]');
   if(btn){btn.textContent='Sending…';btn.disabled=true;}
   const tasks=db.tasks();
-  const date=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
   const rows=[];
   USERS.forEach(dev=>{
     const dt=tasks.filter(t=>t.assignee_id===dev.id);
     dt.forEach(t=>{
+      const createdDate=t.created_at?new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'';
       const eddDate=t.edd_sm||t.edd;
       let remark=t.remark||'';
       if(t.blocker_reason)remark=(remark?remark+' | ':'')+t.blocker_reason;
       rows.push({
-        date,
+        date:createdDate,
         module:t.module||'',
         item:t.title,
         assignee:dev.name.split(' ')[0],
@@ -1876,7 +1876,7 @@ async function doSheetExport(url){
     });
   });
   try{
-    const r=await fetch('/api/sheet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,tasks:rows})});
+    const r=await fetch('/api/sheet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tasks:rows})});
     const d=await r.json();
     if(d.success){toast(`✅ ${d.rows} rows written to sheet!`);}
     else{toast('❌ Sheet error: '+(d.error||'unknown'));}
