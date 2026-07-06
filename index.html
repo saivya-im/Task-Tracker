@@ -1859,20 +1859,19 @@ async function doSheetExport(url){
   USERS.forEach(dev=>{
     const dt=tasks.filter(t=>t.assignee_id===dev.id);
     dt.forEach(t=>{
+      const eddDate=t.edd_sm||t.edd;
+      let remark=t.remark||'';
+      if(t.blocker_reason)remark=(remark?remark+' | ':'')+t.blocker_reason;
       rows.push({
         date,
-        developer:dev.name,
         module:t.module||'',
-        title:t.title,
-        type:t.type||'',
-        priority:t.priority||'',
+        item:t.title,
+        assignee:dev.name.split(' ')[0],
         status:{todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[t.status]||t.status,
-        edd:t.edd?fdate(t.edd):'',
-        edd_sm:t.edd_sm?fdate(t.edd_sm):'',
-        progress:t.progress||0,
+        edd:eddDate?fdate(eddDate):'',
+        priority:t.priority||'',
         ticket_id:t.ticket_id||'',
-        remark:t.remark||'',
-        blocker:t.blocker_reason||''
+        remark
       });
     });
   });
