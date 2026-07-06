@@ -1832,13 +1832,58 @@ function showSummary(){
     </div>
     <div class="tbl-wrap" style="overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;max-height:65vh;overflow-y:auto;">${tbl}</div>
     <div style="display:flex;gap:8px;margin-top:14px;">
-      <button class="btn btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('smry-plain').value).then(()=>toast('📋 Copied!'))">📋 Copy as Text</button>
+      <button class="btn btn-secondary" onclick="copyToSheet()">📊 Copy to Sheet</button>
       <button id="gchat-btn" class="btn btn-primary" onclick="postToGChat()">📨 Post to Google Chat</button>
     </div>
     <textarea id="smry-plain" style="position:absolute;left:-9999px;opacity:0;">${plain}</textarea>`;
   document.getElementById('moverlay').style.display='flex';
 }
 
+function copyToSheet(){
+  const url=localStorage.getItem('sheet_script_url');
+  if(!url){
+    const inp=prompt('Paste your Google Apps Script Web App URL:');
+    if(!inp)return;
+    localStorage.setItem('sheet_script_url',inp.trim());
+    doSheetExport(inp.trim());
+  } else {
+    doSheetExport(url);
+  }
+}
+async function doSheetExport(url){
+  const btn=document.querySelector('[onclick="copyToSheet()"]');
+  if(btn){btn.textContent='Sending…';btn.disabled=true;}
+  const tasks=db.tasks();
+  const date=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const rows=[];
+  USERS.forEach(dev=>{
+    const dt=tasks.filter(t=>t.assignee_id===dev.id);
+    dt.forEach(t=>{
+      rows.push({
+        date,
+        developer:dev.name,
+        module:t.module||'',
+        title:t.title,
+        type:t.type||'',
+        priority:t.priority||'',
+        status:{todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[t.status]||t.status,
+        edd:t.edd?fdate(t.edd):'',
+        edd_sm:t.edd_sm?fdate(t.edd_sm):'',
+        progress:t.progress||0,
+        ticket_id:t.ticket_id||'',
+        remark:t.remark||'',
+        blocker:t.blocker_reason||''
+      });
+    });
+  });
+  try{
+    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({date,tasks:rows})});
+    const d=await r.json();
+    if(d.success){toast(`✅ ${d.rows} rows written to sheet!`);}
+    else{toast('❌ Sheet error: '+(d.error||'unknown'));}
+  }catch(e){toast('❌ Failed: '+e.message);}
+  finally{if(btn){btn.textContent='📊 Copy to Sheet';btn.disabled=false;}}
+}
 async function postToGChat(){
   const btn=document.getElementById('gchat-btn');
   if(btn){btn.textContent='Sending…';btn.disabled=true;}
