@@ -7,17 +7,19 @@ export default async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(200).end(); return; }
   if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   try {
+    const body = JSON.stringify(req.body);
     const response = await fetch(SCRIPT_URL, {
       method: 'POST',
       redirect: 'follow',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(req.body),
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'data=' + encodeURIComponent(body),
     });
     const text = await response.text();
-    try {
+    console.log('Apps Script status:', response.status, 'body:', text.substring(0, 300));
+    if (text.trim().startsWith('{')) {
       res.status(200).json(JSON.parse(text));
-    } catch {
-      res.status(200).json({ success: true, raw: text });
+    } else {
+      res.status(500).json({ error: 'Apps Script returned non-JSON', hint: text.substring(0, 200) });
     }
   } catch (e) {
     res.status(500).json({ error: e.message });
