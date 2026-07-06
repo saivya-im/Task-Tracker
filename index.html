@@ -1840,24 +1840,26 @@ async function postToGChat(){
   if(btn){btn.textContent='Sending…';btn.disabled=true;}
   const tasks=db.tasks();
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  const sico=s=>({todo:'📥',in_progress:'🔵',done:'✅',blocked:'🚫',discussion:'💬',dependant:'🔗',dropped:'🗑'}[s]||'📌');
-  const slbl=s=>({todo:'To Pick',in_progress:'WIP',done:'Done',blocked:'Blocked',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s);
+  const stag=s=>({todo:'TO PICK ',in_progress:'WIP     ',blocked:'BLOCKED ',discussion:'DISCUSS ',dependant:'DEPENDNT',dropped:'DROPPED '}[s]||s.toUpperCase().padEnd(8));
   const sections=[];
   devs().forEach(dev=>{
     const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');
     if(!dt.length)return;
-    const lines=dt.map(t=>{
+    const rows=dt.map(t=>{
       const edd=t.edd_sm||t.edd;
-      let line=`${sico(t.status)} *${t.title}*`;
-      line+=` | ${t.module||'—'} | ${t.priority||'—'} | ${slbl(t.status)} | ${edd?fdate(edd):'—'}`;
-      if(t.blocker_reason)line+=`\n  ⚠️ _${t.blocker_reason}_`;
+      const tag=`[${stag(t.status)}]`;
+      const title=t.status==='in_progress'?`*${t.title}*`:t.title;
+      let line=`  ${tag}  ${title}`;
+      const meta=[t.module||null,t.priority||null,edd?fdate(edd):null].filter(Boolean).join(' · ');
+      if(meta)line+=`  ·  ${meta}`;
+      if(t.blocker_reason)line+=`\n           ⚠️ ${t.blocker_reason}`;
       return line;
     }).join('\n');
-    sections.push(`👤 *${dev.name}*\n${lines}`);
+    sections.push(`*${dev.name}*\n${rows}`);
   });
   const total=tasks.filter(t=>t.status!=='done').length;
   const devCount=devs().filter(d=>tasks.some(t=>t.assignee_id===d.id&&t.status!=='done')).length;
-  const text=`📋 *Daily Scrum Summary — ${dateStr}*\n_${total} open tasks · ${devCount} developers_\n${'─'.repeat(40)}\n\n${sections.join('\n\n')}`;
+  const text=`📋 *Daily Scrum Summary — ${dateStr}*\n_${total} open tasks · ${devCount} developers_\n${'─'.repeat(38)}\n\n${sections.join('\n\n')}`;
   try{
     const r=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
     if(r.ok){toast('✅ Posted to Google Chat!');if(btn){btn.textContent='✅ Sent!';}}
