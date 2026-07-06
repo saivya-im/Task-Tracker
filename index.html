@@ -225,7 +225,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* MODAL */
 #moverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:600;align-items:center;justify-content:center;}
-#modal{background:#fff;border-radius:14px;padding:26px;width:620px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);}
+#modal{background:#fff;border-radius:14px;padding:26px;width:620px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 64px rgba(0,0,0,.2);}#modal.fullscreen{width:100vw!important;max-width:100vw!important;height:100vh;max-height:100vh;border-radius:0;margin:0;}
 .modal-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
 .modal-hdr h3{font-size:16px;font-weight:800;}
 .modal-close{background:none;border:none;font-size:21px;cursor:pointer;color:var(--text2);}
@@ -1824,9 +1824,12 @@ function showSummary(){
         <h3>📋 Daily Summary — ${dateStr}</h3>
         <div style="font-size:11px;color:var(--text2);margin-top:2px;">${tasks.length} tasks across ${devs().filter(d=>tasks.some(t=>t.assignee_id===d.id)).length} developers</div>
       </div>
-      <button class="modal-close" onclick="closeModal()">✕</button>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button onclick="(function(){const m=document.getElementById('modal');const isFs=m.classList.toggle('fullscreen');this.textContent=isFs?'⊡':'⛶';m.querySelector('.tbl-wrap').style.maxHeight=isFs?'calc(100vh - 160px)':'65vh';}).call(this)" style="background:none;border:1.5px solid var(--border);border-radius:6px;font-size:16px;cursor:pointer;padding:2px 7px;color:var(--text2);" title="Fullscreen">⛶</button>
+        <button class="modal-close" onclick="closeModal()">✕</button>
+      </div>
     </div>
-    <div style="overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;max-height:65vh;overflow-y:auto;">${tbl}</div>
+    <div class="tbl-wrap" style="overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;max-height:65vh;overflow-y:auto;">${tbl}</div>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-secondary" onclick="navigator.clipboard.writeText(document.getElementById('smry-plain').value).then(()=>toast('📋 Copied!'))">📋 Copy as Text</button>
       <button id="gchat-btn" class="btn btn-primary" onclick="postToGChat()">📨 Post to Google Chat</button>
@@ -1839,24 +1842,25 @@ async function postToGChat(){
   const btn=document.getElementById('gchat-btn');
   if(btn){btn.textContent='Sending…';btn.disabled=true;}
   const tasks=db.tasks();
-  const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  const slbl=s=>({todo:'To Pick',in_progress:'WIP',done:'Done',blocked:'Blocked',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s);
-  const pad=(s,n)=>String(s||'—').padEnd(n);
-  const W={mod:16,pri:4,st:9,edd:6};
-  const hdr=`${pad('Module',W.mod)} | ${pad('Pri',W.pri)} | ${pad('Status',W.st)} | EDD`;
-  const sep=`${'-'.repeat(W.mod)}-+-${'-'.repeat(W.pri)}-+-${'-'.repeat(W.st)}-+-------`;
+  const d=new Date();
+  const dateStr=d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
+  const stag=s=>({todo:'PICK',in_progress:'WIP ',blocked:'BLKD',discussion:'DISC',dependant:'DEPN',dropped:'DROP'}[s]||'    ');
   const sections=[];
   devs().forEach(dev=>{
     const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');
     if(!dt.length)return;
     const rows=dt.map(t=>{
       const edd=t.edd_sm||t.edd;
-      let taskStr=t.title;
-      if(t.blocker_reason)taskStr+=`  ⚠ ${t.blocker_reason}`;
-      const meta=`${pad(t.module||'—',W.mod)} | ${pad(t.priority||'—',W.pri)} | ${pad(slbl(t.status),W.st)} | ${edd?fdate(edd):'—'}`;
-      return `${meta}\n  ↳ ${taskStr}`;
+      const tag=stag(t.status);
+      const eddStr=edd?fdate(edd):'——    ';
+      const pri=t.priority||'—— ';
+      const title=t.status==='in_progress'?`*${t.title}*`:t.title;
+      const mod=t.module?` (${t.module})`:'';
+      let line=`  ${tag} · ${pri} · ${eddStr} · ${title}${mod}`;
+      if(t.blocker_reason)line+=`\n              ⚠️ ${t.blocker_reason}`;
+      return line;
     }).join('\n');
-    sections.push(`👤 *${dev.name}*\n\`\`\`\n${hdr}\n${sep}\n${rows}\n\`\`\``);
+    sections.push(`*${dev.name}*\n${rows}`);
   });
   const total=tasks.filter(t=>t.status!=='done').length;
   const devCount=devs().filter(d=>tasks.some(t=>t.assignee_id===d.id&&t.status!=='done')).length;
