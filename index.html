@@ -1868,7 +1868,8 @@ async function doSheetExport(url){
         item:t.title,
         assignee:dev.name.split(' ')[0],
         status:{todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[t.status]||t.status,
-        edd:eddDate?fdate(eddDate):'',
+        edd:t.edd?fdate(t.edd):'',
+        edd_sm:t.edd_sm?fdate(t.edd_sm):'',
         priority:t.priority||'',
         ticket_id:t.ticket_id||'',
         remark
