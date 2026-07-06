@@ -1877,7 +1877,7 @@ async function doSheetExport(url){
     });
   });
   try{
-    const r=await fetch(url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({date,tasks:rows})});
+    const r=await fetch('/api/sheet',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({date,tasks:rows})});
     const d=await r.json();
     if(d.success){toast(`✅ ${d.rows} rows written to sheet!`);}
     else{toast('❌ Sheet error: '+(d.error||'unknown'));}
