@@ -1297,7 +1297,10 @@ function openDrawer(taskId){
                   ${s.edd?`<span>📅 ${fdate(s.edd)}</span>`:''}
                 </div>
               </div>
-              <span class="chip ${schip(s.status)}" style="font-size:9px">${slabel(s.status)}</span>
+              <div style="display:flex;align-items:center;gap:5px;">
+                <span class="chip ${schip(s.status)}" style="font-size:9px;cursor:pointer" title="Click to cycle status" onclick="cycleSTStatus('${t.id}',${i})">${slabel(s.status)}</span>
+                <button onclick="editST('${t.id}',${i})" style="background:none;border:none;cursor:pointer;color:#94a3b8;font-size:12px;padding:1px 3px;border-radius:4px" title="Edit subtask">✎</button>
+              </div>
             </div>`).join(''):'<div style="font-size:12px;color:var(--text2);padding:8px 0">No subtasks yet.</div>'}
         </div>
         <div id="stform-${t.id}" style="display:none;margin-top:10px;padding:12px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);">
@@ -1374,12 +1377,57 @@ function saveEDD(id){
   toast('📅 EDD adjusted');openDrawer(id);render();
 }
 
-function toggleST(taskId,idx){
+function cycleSTStatus(taskId,idx){
   const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
   const subtasks=[...t.subtasks];
-  subtasks[idx]={...subtasks[idx],status:subtasks[idx].status==='done'?'todo':'done'};
+  const cycle={todo:'in_progress',in_progress:'done',done:'todo'};
+  subtasks[idx]={...subtasks[idx],status:cycle[subtasks[idx].status]||'todo'};
   db.updateSubtasks(taskId,subtasks);
   openDrawer(taskId);render();
+}
+function toggleST(taskId,idx){cycleSTStatus(taskId,idx);}
+function editST(taskId,idx){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const s=t.subtasks[idx];
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:900;display:flex;align-items:center;justify-content:center;';
+  overlay.innerHTML=`<div style="background:#fff;border-radius:12px;padding:22px;width:340px;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;"><b style="font-size:14px">Edit Subtask</b><button onclick="this.closest('.st-edit-ov').remove()" style="background:none;border:none;font-size:18px;cursor:pointer">✕</button></div>
+    <div style="margin-bottom:10px;"><label style="font-size:11px;color:#64748b;font-weight:600">Title</label><input id="st-edit-title" value="${s.title}" style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:7px 10px;font-size:13px;outline:none;margin-top:3px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+      <div><label style="font-size:11px;color:#64748b;font-weight:600">Assignee</label>
+        <select id="st-edit-dev" style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:7px 8px;font-size:12px;outline:none;margin-top:3px">
+          <option value="">Parent dev</option>${devs().map(d=>`<option value="${d.id}"${s.assignee_id===d.id?' selected':''}>${d.name.split(' ')[0]}</option>`).join('')}
+        </select></div>
+      <div><label style="font-size:11px;color:#64748b;font-weight:600">EDD</label><input type="date" id="st-edit-edd" value="${s.edd||''}" style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:7px 8px;font-size:12px;outline:none;margin-top:3px"></div>
+    </div>
+    <div style="margin-bottom:14px;"><label style="font-size:11px;color:#64748b;font-weight:600">Status</label>
+      <select id="st-edit-status" style="width:100%;border:1.5px solid #e2e8f0;border-radius:7px;padding:7px 8px;font-size:12px;outline:none;margin-top:3px">
+        <option value="todo"${s.status==='todo'?' selected':''}>To be Picked</option>
+        <option value="in_progress"${s.status==='in_progress'?' selected':''}>WIP</option>
+        <option value="done"${s.status==='done'?' selected':''}>Done</option>
+        <option value="blocked"${s.status==='blocked'?' selected':''}>Blocked</option>
+      </select></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="saveEditST('${taskId}',${idx})" style="flex:1;padding:9px;background:#1d4ed8;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Save</button>
+      <button onclick="this.closest('.st-edit-ov').remove()" style="flex:1;padding:9px;background:#f1f5f9;color:#1e293b;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">Cancel</button>
+    </div>
+  </div>`;
+  overlay.className='st-edit-ov';
+  document.body.appendChild(overlay);
+}
+function saveEditST(taskId,idx){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const subtasks=[...t.subtasks];
+  subtasks[idx]={...subtasks[idx],
+    title:document.getElementById('st-edit-title').value.trim()||subtasks[idx].title,
+    assignee_id:document.getElementById('st-edit-dev').value||subtasks[idx].assignee_id,
+    edd:document.getElementById('st-edit-edd').value||null,
+    status:document.getElementById('st-edit-status').value
+  };
+  db.updateSubtasks(taskId,subtasks);
+  document.querySelector('.st-edit-ov')?.remove();
+  toast('Subtask updated');openDrawer(taskId);render();
 }
 
 function showAddST(id){document.getElementById('stform-'+id).style.display='block';}
