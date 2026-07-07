@@ -1759,7 +1759,7 @@ function showSummary(){
   const tdS='padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle;';
   let rows='';
   devs().forEach(dev=>{
-    const dt=tasks.filter(t=>t.assignee_id===dev.id);if(!dt.length)return;
+    const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');if(!dt.length)return;
     // dev header row
     rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#f8fafc;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
       <div style="display:flex;align-items:center;gap:8px;">
@@ -1856,7 +1856,7 @@ async function doSheetExport(url){
   const tasks=db.tasks();
   const rows=[];
   USERS.forEach(dev=>{
-    const dt=tasks.filter(t=>t.assignee_id===dev.id);
+    const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');
     dt.forEach(t=>{
       const createdDate=t.created_at?new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'';
       const eddDate=t.edd_sm||t.edd;
