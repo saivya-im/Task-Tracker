@@ -710,18 +710,19 @@ function renderBoard(){
       <select id="fp" onchange="rbc()"><option value="">All Priorities</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select>
       <select id="fm" onchange="rbc()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
       <select id="fmed" onchange="rbc()"><option value="">All Mediums</option>${MEDIUMS.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
+      <select id="fcb" onchange="rbc()"><option value="">All Created By</option>${USERS.filter(u=>u.role==='manager'||u.role==='scrum_master').map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}</select>
       <select id="fo" onchange="rbc()"><option value="">All Tasks</option><option value="overdue">Overdue</option><option value="carried">Carried Over</option><option value="blocked">Blocked</option><option value="dependant">Dependant</option><option value="discussion">Discussion</option><option value="dropped">Dropped</option></select>
     </div>
     <div id="brd"></div>`;
   const _f=S.filters;
   const _s=(id,v)=>{const e=document.getElementById(id);if(e&&v)e.value=v;};
-  _s('fs',_f.s);_s('fd',_f.d);_s('ft',_f.t);_s('fp',_f.p);_s('fm',_f.m);_s('fmed',_f.med);_s('fo',_f.o);
+  _s('fs',_f.s);_s('fd',_f.d);_s('ft',_f.t);_s('fp',_f.p);_s('fm',_f.m);_s('fmed',_f.med);_s('fo',_f.o);_s('fcb',_f.cb);
   rbc();
 }
 
 function gf(){
   const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
-  const f={s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo')};
+  const f={s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo'),cb:g('fcb')};
   Object.assign(S.filters,f);
   return f;
 }
@@ -741,6 +742,7 @@ function filtered(){
     if(f.o==='dependant'&&t.status!=='dependant')return false;
     if(f.o==='discussion'&&t.status!=='discussion')return false;
     if(f.o==='dropped'&&t.status!=='dropped')return false;
+    if(f.cb&&t.created_by!==f.cb)return false;
     return true;
   });
 }
