@@ -1750,6 +1750,7 @@ function suEditTask(taskId){
         <select id="se-status" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
           <option value="todo" ${t.status==='todo'?'selected':''} style="background:#1e293b">📥 To be Picked</option>
           <option value="in_progress" ${t.status==='in_progress'?'selected':''} style="background:#1e293b">🔵 WIP</option>
+          <option value="review" ${t.status==='review'?'selected':''} style="background:#1e293b">🧪 Review/Test</option>
           <option value="discussion" ${t.status==='discussion'?'selected':''} style="background:#1e293b">💬 Discussion</option>
           <option value="dependant" ${t.status==='dependant'?'selected':''} style="background:#1e293b">🔗 Dependant</option>
           <option value="blocked" ${t.status==='blocked'?'selected':''} style="background:#1e293b">🚫 Blocked</option>
