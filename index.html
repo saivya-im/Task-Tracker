@@ -122,7 +122,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* BOARD */
 .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;}
-.board-col{flex-shrink:0;width:235px;}
+.board-col{flex-shrink:0;width:235px;}.board-col.drag-over{background:rgba(59,130,246,.06);border-radius:10px;outline:2px dashed #3b82f6;}.tcard.dragging{opacity:.4;}
 .board-col-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
 .bcol-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
 .bcol-count{background:var(--border);color:var(--text2);font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;}
@@ -754,7 +754,7 @@ function rbc(){
   const labels={todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'};
   el.innerHTML='<div class="board">'+stats.map(s=>{
     const ts=tasks.filter(t=>t.status===s);
-    return`<div class="board-col">
+    return`<div class="board-col" ondragover="event.preventDefault();this.classList.add('drag-over')" ondragleave="this.classList.remove('drag-over')" ondrop="dropOnCol(event,'${s}')">
       <div class="board-col-hdr">
         <span class="bcol-title" style="color:${s==='blocked'||s==='dropped'?'var(--blocked)':s==='done'?'var(--done)':s==='in_progress'?'var(--inprog)':s==='discussion'?'#0f766e':s==='dependant'?'#7c3aed':s==='todo'?'#92400e':'var(--text2)'}">${labels[s]}</span>
         <span class="bcol-count">${ts.length}</span>
@@ -765,6 +765,17 @@ function rbc(){
   }).join('')+'</div>';
 }
 
+let _dragId=null;
+function dragStart(e,id){_dragId=id;e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
+function dropOnCol(e,status){
+  e.preventDefault();
+  e.currentTarget.classList.remove('drag-over');
+  if(!_dragId)return;
+  db.update(_dragId,{status});
+  _dragId=null;
+  render();
+  toast('Status updated to '+slabel(status));
+}
 function tcardHTML(t){
   const a=uid(t.assignee_id);
   const edd=t.edd_sm||t.edd;
@@ -772,7 +783,7 @@ function tcardHTML(t){
   const p=autoProg(t);
   const ticon=TYPE_ICON[t.type]||'📌';
   const tcolor=TYPE_COLOR[t.type]||'#64748b';
-  return`<div class="tcard ${typeClass(t.type)} ${br?'breached':''} ${ag&&!br?'aging':''}" onclick="openDrawer('${t.id}')">
+  return`<div class="tcard ${typeClass(t.type)} ${br?'breached':''} ${ag&&!br?'aging':''}" draggable="true" ondragstart="dragStart(event,'${t.id}')" ondragend="this.classList.remove('dragging')" onclick="openDrawer('${t.id}')">
     <div class="tc-top">
       <div class="tc-title"><span title="${t.type}">${ticon}</span> ${t.title}</div>
       <button class="info-btn" onclick="event.stopPropagation();openDrawer('${t.id}')" title="Details">ⓘ</button>
@@ -869,6 +880,7 @@ function devRow(t){
       <select class="status-sel" onchange="devStatus('${t.id}',this.value)">
         <option value="todo" ${t.status==='todo'?'selected':''}>📥 To be Picked</option>
         <option value="in_progress" ${t.status==='in_progress'?'selected':''}>🔵 WIP</option>
+        <option value="review" ${t.status==='review'?'selected':''}>🧪 Review/Test</option>
         <option value="discussion" ${t.status==='discussion'?'selected':''}>💬 Discussion</option>
         <option value="dependant" ${t.status==='dependant'?'selected':''}>🔗 Dependant</option>
         <option value="blocked" ${t.status==='blocked'?'selected':''}>🚫 Blocked</option>
@@ -1039,6 +1051,7 @@ function renderTable(){
   const statusDropdown=(t)=>`<select onchange="db.update('${t.id}',{status:this.value});renderTable()" style="border:1.5px solid var(--border);border-radius:20px;padding:3px 8px;font-size:11px;font-weight:700;outline:none;cursor:pointer;background:transparent;appearance:none;-webkit-appearance:none;color:inherit;" class="${schip(t.status)}">
     <option value="todo" ${t.status==='todo'?'selected':''}>📥 To be Picked</option>
     <option value="in_progress" ${t.status==='in_progress'?'selected':''}>🔵 WIP</option>
+    <option value="review" ${t.status==='review'?'selected':''}>🧪 Review/Test</option>
     <option value="discussion" ${t.status==='discussion'?'selected':''}>💬 Discussion</option>
     <option value="dependant" ${t.status==='dependant'?'selected':''}>🔗 Dependant</option>
     <option value="blocked" ${t.status==='blocked'?'selected':''}>🚫 Blocked</option>
