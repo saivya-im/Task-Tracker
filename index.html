@@ -93,7 +93,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ch-todo{background:#fef9c3;color:#854d0e;}
 .ch-in_progress{background:#dbeafe;color:#2563eb;}
 .ch-blocked{background:#fee2e2;color:#ef4444;}
-.ch-done{background:#dcfce7;color:#16a34a;}
+.ch-done{background:#dcfce7;color:#16a34a;}.ch-review{background:#f0fdf4;color:#0d9488;}
 .ch-discussion{background:#ccfbf1;color:#0f766e;}
 .ch-dependant{background:#ede9fe;color:#7c3aed;}
 .ch-dropped{background:#ffedd5;color:#c2410c;}
@@ -418,7 +418,7 @@ const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Paymen
 const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
 
 // ── STATE ─────────────────────────────────────────────────
-const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],bugCounts:{},refreshTimer:null,filters:{s:'',d:'',t:'',p:'',m:'',med:'',o:''}};
+const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],bugCounts:{},refreshTimer:null,filters:{s:'',d:'',t:'',p:'',m:'',med:'',o:'',cb:''},absentDevs:new Set()};
 
 // ── DB (Supabase-backed, in-memory cache) ─────────────────
 const db={
@@ -492,8 +492,8 @@ function av(u){return u?u.name.split(' ').map(n=>n[0]).join('').slice(0,2):'?';}
 function fdate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
 function today(){return new Date().toISOString().split('T')[0];}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
-function slabel(s){return{todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s;}
-function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped'}[s]||'ch-todo';}
+function slabel(s){return{todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s;}
+function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',review:'ch-review',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped'}[s]||'ch-todo';}
 function isBreached(t){const e=t.edd_sm||t.edd;if(!e||t.status==='done')return false;return new Date(e)<new Date(today());}
 function isAging(t){if(t.status!=='in_progress')return false;return(Date.now()-new Date(t.updated_at||t.created_at))/(864e5)>=3;}
 function progColor(p){return p>=80?'#22c55e':p>=40?'#3b82f6':'#f59e0b';}
@@ -711,7 +711,7 @@ function renderBoard(){
       <select id="fm" onchange="rbc()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
       <select id="fmed" onchange="rbc()"><option value="">All Mediums</option>${MEDIUMS.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
       <select id="fcb" onchange="rbc()"><option value="">All Created By</option>${USERS.filter(u=>u.role==='manager'||u.role==='scrum_master').map(u=>`<option value="${u.id}">${u.name}</option>`).join('')}</select>
-      <select id="fo" onchange="rbc()"><option value="">All Tasks</option><option value="overdue">Overdue</option><option value="carried">Carried Over</option><option value="blocked">Blocked</option><option value="dependant">Dependant</option><option value="discussion">Discussion</option><option value="dropped">Dropped</option></select>
+      <select id="fo" onchange="rbc()"><option value="">All</option><option value="overdue">⚠️ Overdue</option><option value="carried">↩ Carried Over</option><option value="review">Review/Test</option><option value="blocked">Blocked</option><option value="dependant">Dependant</option><option value="discussion">Discussion</option><option value="dropped">Dropped</option></select>
     </div>
     <div id="brd"></div>`;
   const _f=S.filters;
@@ -750,8 +750,8 @@ function filtered(){
 function rbc(){
   const el=document.getElementById('brd');if(!el)return;
   const tasks=filtered();
-  const stats=['todo','in_progress','discussion','dependant','blocked','dropped','done'];
-  const labels={todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'};
+  const stats=['todo','in_progress','review','discussion','dependant','blocked','dropped','done'];
+  const labels={todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'};
   el.innerHTML='<div class="board">'+stats.map(s=>{
     const ts=tasks.filter(t=>t.status===s);
     return`<div class="board-col">
@@ -996,7 +996,7 @@ function renderTable(){
       <input type="text" id="tfs" placeholder="🔍 Search…" oninput="renderTable()" style="width:160px;">
       <select id="tfd" onchange="renderTable()"><option value="">All Developers</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
       <select id="tft" onchange="renderTable()"><option value="">All Types</option><option value="feature">✨ Feature</option><option value="bug">🐛 Bug</option><option value="optimisation">⚡ Optimisation</option><option value="ad-hoc">🔀 Ad-hoc</option><option value="chore">🔧 Chore</option></select>
-      <select id="tfs2" onchange="renderTable()"><option value="">All Statuses</option><option value="todo">To be Picked</option><option value="in_progress">WIP</option><option value="discussion">Discussion</option><option value="dependant">Dependant</option><option value="blocked">Blocked</option><option value="dropped">Dropped</option><option value="done">Done</option></select>
+      <select id="tfs2" onchange="renderTable()"><option value="">All Statuses</option><option value="todo">To be Picked</option><option value="in_progress">WIP</option><option value="review">Review/Test</option><option value="discussion">Discussion</option><option value="dependant">Dependant</option><option value="blocked">Blocked</option><option value="dropped">Dropped</option><option value="done">Done</option></select>
       <select id="tfm" onchange="renderTable()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
     </div>
     <div id="tbl-wrap" style="overflow-x:auto;border-radius:10px;border:1.5px solid var(--border);"></div>`;
@@ -1537,10 +1537,14 @@ function renderSU(){
   document.getElementById('su-dots').innerHTML=suDevs.map((_,i)=>`<div class="su-dot ${i<S.suIdx?'done':i===S.suIdx?'cur':''}"></div>`).join('');
   const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
   const suRem=Math.max(0,(bc.total||0)-(bc.resolved||0));
+  const isAbsent=S.absentDevs.has(dev.id);
   document.getElementById('su-side').innerHTML=`
-    <div class="su-av" style="background:${dev.color}">${av(dev)}</div>
-    <div class="su-name">${dev.name}</div>
+    <div class="su-av" style="background:${dev.color};opacity:${isAbsent?'.4':'1'}">${av(dev)}</div>
+    <div class="su-name">${dev.name}${isAbsent?' <span style="font-size:10px;background:rgba(239,68,68,.2);color:#f87171;border-radius:4px;padding:1px 6px;margin-left:6px;">Absent</span>':''}</div>
     <div class="su-role">Developer</div>
+    <button onclick="toggleAbsent('${dev.id}')" style="margin-top:8px;width:100%;padding:6px;background:${isAbsent?'rgba(239,68,68,.15)':'rgba(255,255,255,.07)'};border:1px solid ${isAbsent?'rgba(239,68,68,.3)':'rgba(255,255,255,.12)'};border-radius:7px;color:${isAbsent?'#f87171':'rgba(255,255,255,.55)'};font-size:11px;font-weight:700;cursor:pointer;">
+      ${isAbsent?'✓ Mark Present':'Mark Absent Today'}
+    </button>
     <div class="su-summary" style="margin-top:14px;">
       <p>✅ Done: <strong style="color:#22c55e">${done.length}</strong></p>
       <p>🔵 Active: <strong style="color:#3b82f6">${active.length}</strong></p>
@@ -1567,7 +1571,13 @@ function renderSU(){
         </div>
       </div>
     </div>`;
-  function suTaskCard(t,cls=''){
+  function toggleAbsent(devId){
+  if(S.absentDevs.has(devId))S.absentDevs.delete(devId);
+  else S.absentDevs.add(devId);
+  const cur=S.suIdx;startSU();S.suIdx=cur;
+  document.getElementById('su-side').scrollTop=0;
+}
+function suTaskCard(t,cls=''){
     return`<div class="su-task ${cls}" style="position:relative;">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
         <div style="flex:1"><p>${TYPE_ICON[t.type]||'📌'} ${t.title}</p><small>${t.module?'📦 '+t.module+' · ':''}EDD: ${fdate(t.edd_sm||t.edd)}</small></div>
@@ -1906,6 +1916,7 @@ async function doSheetExport(url){
   const tasks=db.tasks();
   const rows=[];
   USERS.forEach(dev=>{
+    if(S.absentDevs.has(dev.id))return;
     const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');
     dt.forEach(t=>{
       const createdDate=t.created_at?new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'long',year:'numeric'}):'';
@@ -1917,7 +1928,7 @@ async function doSheetExport(url){
         module:t.module||'',
         item:t.title,
         assignee:dev.name.split(' ')[0],
-        status:{todo:'To be Picked',in_progress:'WIP',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[t.status]||t.status,
+        status:{todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[t.status]||t.status,
         edd:t.edd?fdate(t.edd):'',
         edd_sm:t.edd_sm?fdate(t.edd_sm):'',
         priority:t.priority||'',
@@ -1940,9 +1951,10 @@ async function postToGChat(){
   const tasks=db.tasks();
   const d=new Date();
   const dateStr=d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short'});
-  const stag=s=>({todo:'PICK',in_progress:'WIP ',blocked:'BLKD',discussion:'DISC',dependant:'DEPN',dropped:'DROP'}[s]||'    ');
+  const stag=s=>({todo:'PICK',in_progress:'WIP ',review:'REVW',blocked:'BLKD',discussion:'DISC',dependant:'DEPN',dropped:'DROP'}[s]||'    ');
   const sections=[];
   devs().forEach(dev=>{
+    if(S.absentDevs.has(dev.id))return;
     const dt=tasks.filter(t=>t.assignee_id===dev.id&&t.status!=='done');
     if(!dt.length)return;
     const rows=dt.map(t=>{
