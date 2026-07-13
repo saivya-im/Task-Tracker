@@ -543,6 +543,7 @@ async function doLogin(){
   loginSetLoading(false);
   const u=USERS.find(u=>u.id===userId);
   S.user=u;
+  localStorage.setItem('scrumboard_user_id', u.id);
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
@@ -579,6 +580,7 @@ async function saveNewPassword(userId){
   document.getElementById('set-pwd-overlay').remove();
   const u=USERS.find(u=>u.id===userId);
   S.user=u;
+  localStorage.setItem('scrumboard_user_id', u.id);
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
@@ -628,6 +630,7 @@ async function doChangePassword(userId){
 function logout(){
   clearInterval(S.refreshTimer);
   S.user=null;S.tasks=[];
+  localStorage.removeItem('scrumboard_user_id');
   document.getElementById('app').style.display='none';
   document.getElementById('login-page').style.display='flex';
   document.getElementById('l-pass').value='';
@@ -1830,14 +1833,20 @@ function suSaveEdit(taskId){
 
 // ── SUMMARY ───────────────────────────────────────────────
 let _SF={devs:null,statuses:null,modules:null,priorities:null};// null=all selected
+const _SFOpts = {
+  devs: () => devs().map(d=>({val:d.id, label:d.name.split(' ')[0]})),
+  statuses: () => ['todo','in_progress','review','discussion','dependant','blocked','dropped','done'].map(s=>({val:s, label:slabel(s)})),
+  modules: () => [''].concat(MODULES).map(m=>({val:m, label:m||'No module'})),
+  priorities: () => ['P1','P2','P3'].map(p=>({val:p, label:p}))
+};
+
 function showSummary(){
-  const allTasks=db.tasks();
   const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  // init filters to all-selected
-  _SF.devs=new Set(devs().map(d=>d.id));
-  _SF.statuses=new Set(['todo','in_progress','review','discussion','dependant','blocked','dropped','done']);
-  _SF.modules=new Set([''].concat(MODULES));
-  _SF.priorities=new Set(['P1','P2','P3']);
+  _SF.devs=new Set(_SFOpts.devs().map(o=>o.val));
+  _SF.statuses=new Set(_SFOpts.statuses().map(o=>o.val));
+  _SF.modules=new Set(_SFOpts.modules().map(o=>o.val));
+  _SF.priorities=new Set(_SFOpts.priorities().map(o=>o.val));
+  
   document.getElementById('modal').style.cssText='width:90vw;max-width:90vw;';
   document.getElementById('modal').innerHTML=`
     <div class="modal-hdr">
@@ -1846,66 +1855,88 @@ function showSummary(){
         <div style="font-size:11px;color:var(--text2);margin-top:2px;" id="smry-count"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button onclick="(function(){const m=document.getElementById('modal');const isFs=m.classList.toggle('fullscreen');this.textContent=isFs?'⊡':'⛶';m.querySelector('.tbl-wrap').style.maxHeight=isFs?'calc(100vh - 200px)':'55vh';}).call(this)" style="background:none;border:1.5px solid var(--border);border-radius:6px;font-size:16px;cursor:pointer;padding:2px 7px;color:var(--text2);" title="Fullscreen">⛶</button>
+        <button onclick="(function(){const m=document.getElementById('modal');const isFs=m.classList.toggle('fullscreen');this.textContent=isFs?'⊡':'⛶';m.querySelector('.tbl-wrap').style.maxHeight=isFs?'calc(100vh - 120px)':'65vh';}).call(this)" style="background:none;border:1.5px solid var(--border);border-radius:6px;font-size:16px;cursor:pointer;padding:2px 7px;color:var(--text2);" title="Fullscreen">⛶</button>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
     </div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Assignee <span onclick="smrySelAll('devs',devs().map(d=>d.id))" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">All</span> · <span onclick="smryClearAll('devs')" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">None</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;" id="smry-chips-devs">
-        ${devs().map(d=>`<span class="smry-chip active" data-group="devs" data-val="${d.id}" onclick="toggleSmryChip(this)">${d.name.split(' ')[0]}</span>`).join('')}
-      </div>
-    </div>
-    <div style="margin-bottom:10px;">
-      <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Status <span onclick="smrySelAll('statuses',['todo','in_progress','review','discussion','dependant','blocked','dropped','done'])" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">All</span> · <span onclick="smryClearAll('statuses')" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">None</span></div>
-      <div style="display:flex;flex-wrap:wrap;gap:5px;" id="smry-chips-statuses">
-        ${['todo','in_progress','review','discussion','dependant','blocked','dropped','done'].map(s=>`<span class="smry-chip active ${schip(s)}" data-group="statuses" data-val="${s}" onclick="toggleSmryChip(this)">${slabel(s)}</span>`).join('')}
-      </div>
-    </div>
-    <div style="display:flex;gap:16px;margin-bottom:12px;flex-wrap:wrap;">
-      <div>
-        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Priority <span onclick="smrySelAll('priorities',['P1','P2','P3'])" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">All</span> · <span onclick="smryClearAll('priorities')" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">None</span></div>
-        <div style="display:flex;gap:5px;" id="smry-chips-priorities">
-          ${['P1','P2','P3'].map(p=>`<span class="smry-chip active ch-${p}" data-group="priorities" data-val="${p}" onclick="toggleSmryChip(this)">${p}</span>`).join('')}
-        </div>
-      </div>
-      <div style="flex:1">
-        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Module <span onclick="smrySelAll('modules',[''].concat(MODULES))" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">All</span> · <span onclick="smryClearAll('modules')" style="cursor:pointer;color:var(--blue);font-weight:400;text-transform:none;letter-spacing:0">None</span></div>
-        <div style="display:flex;flex-wrap:wrap;gap:5px;" id="smry-chips-modules">
-          <span class="smry-chip active" data-group="modules" data-val="" onclick="toggleSmryChip(this)" style="background:#f1f5f9;color:#475569">No module</span>
-          ${MODULES.map(m=>`<span class="smry-chip active" data-group="modules" data-val="${m}" onclick="toggleSmryChip(this)" style="background:#f1f5f9;color:#475569">${m}</span>`).join('')}
-        </div>
-      </div>
-    </div>
-    <div class="tbl-wrap" style="overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;max-height:55vh;overflow-y:auto;" id="smry-tbl-wrap"></div>
+    <div class="tbl-wrap" style="overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;max-height:65vh;overflow-y:auto;" id="smry-tbl-wrap" onscroll="closeSmryFilter()"></div>
     <div style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-secondary" onclick="copyToSheet()">📊 Copy to Sheet</button>
       <button id="gchat-btn" class="btn btn-primary" onclick="postToGChat()">📨 Post to Google Chat</button>
-    </div>`;
+    </div>
+    <div id="smry-filter-popover" style="display:none;position:fixed;background:#fff;border:1px solid var(--border);border-radius:6px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;padding:12px;min-width:160px;max-height:300px;overflow-y:auto;"></div>`;
+  
   document.getElementById('moverlay').style.display='flex';
   renderSummaryTable();
 }
 
-function toggleSmryChip(el){
-  const group=el.dataset.group, val=el.dataset.val;
-  if(_SF[group].has(val)){_SF[group].delete(val);el.classList.remove('active');}
-  else{_SF[group].add(val);el.classList.add('active');}
+function openSmryFilter(e, group){
+  e.stopPropagation();
+  const pop = document.getElementById('smry-filter-popover');
+  if(pop.dataset.group === group && pop.style.display === 'block'){
+    closeSmryFilter();
+    return;
+  }
+  const rect = e.target.getBoundingClientRect();
+  pop.style.top = (rect.bottom + 4) + 'px';
+  pop.style.left = rect.left + 'px';
+  pop.dataset.group = group;
+  
+  const opts = _SFOpts[group]();
+  const selected = _SF[group];
+  
+  pop.innerHTML = `
+    <div style="display:flex;gap:8px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid var(--border);">
+      <button onclick="smrySelAll('${group}')" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:11px;font-weight:700;padding:4px;cursor:pointer;">Select All</button>
+      <button onclick="smryClearAll('${group}')" style="flex:1;background:var(--bg);border:1px solid var(--border);border-radius:4px;font-size:11px;font-weight:700;padding:4px;cursor:pointer;">Clear</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      ${opts.map(o=>`
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text);cursor:pointer;user-select:none;">
+          <input type="checkbox" ${selected.has(o.val)?'checked':''} onchange="toggleSmryFilterVal('${group}', '${o.val}')" style="cursor:pointer;">
+          ${o.label}
+        </label>
+      `).join('')}
+    </div>
+  `;
+  pop.style.display = 'block';
+}
+
+function toggleSmryFilterVal(group, val){
+  if(_SF[group].has(val)) _SF[group].delete(val);
+  else _SF[group].add(val);
   renderSummaryTable();
 }
-function smrySelAll(group,vals){
+
+function closeSmryFilter(){
+  const pop = document.getElementById('smry-filter-popover');
+  if(pop) pop.style.display = 'none';
+}
+
+function smrySelAll(group){
+  const vals = _SFOpts[group]().map(o=>o.val);
   _SF[group]=new Set(vals);
-  document.querySelectorAll(`[data-group="${group}"]`).forEach(c=>c.classList.add('active'));
+  Array.from(document.getElementById('smry-filter-popover').querySelectorAll('input[type="checkbox"]')).forEach(cb=>cb.checked=true);
   renderSummaryTable();
 }
+
 function smryClearAll(group){
   _SF[group]=new Set();
-  document.querySelectorAll(`[data-group="${group}"]`).forEach(c=>c.classList.remove('active'));
+  Array.from(document.getElementById('smry-filter-popover').querySelectorAll('input[type="checkbox"]')).forEach(cb=>cb.checked=false);
   renderSummaryTable();
 }
+
+document.addEventListener('click', e => {
+  const pop = document.getElementById('smry-filter-popover');
+  if(pop && pop.style.display==='block' && !pop.contains(e.target) && !e.target.closest('[onclick^="openSmryFilter"]')){
+    closeSmryFilter();
+  }
+});
 
 function renderSummaryTable(){
   const allTasks=db.tasks();
   const thS='padding:9px 12px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;white-space:nowrap;border-bottom:2px solid rgba(255,255,255,.15);background:#1e3a5f;';
+  const filterIcon = (group) => `<span style="cursor:pointer;margin-left:5px;opacity:0.7;font-size:10px;padding:2px 4px;background:rgba(255,255,255,0.1);border-radius:4px;display:inline-flex;align-items:center;" onclick="openSmryFilter(event, '${group}')" title="Filter ${group}">▼</span>`;
   const tdS='padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle;';
   let rows='';let rowCount=0;
   devs().forEach(dev=>{
@@ -1935,7 +1966,7 @@ function renderSummaryTable(){
     });
   });
   const tbl=`<table style="width:100%;border-collapse:collapse;background:#fff;">
-    <thead><tr><th style="${thS}">Date</th><th style="${thS}">Module</th><th style="${thS}">Item</th><th style="${thS}">Assignee</th><th style="${thS}">Status</th><th style="${thS}">EDD</th><th style="${thS}">Priority</th><th style="${thS}">Ticket ID</th><th style="${thS}">Remark</th></tr></thead>
+    <thead style="position:sticky;top:0;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.1);"><tr><th style="${thS}">Date</th><th style="${thS}">Module${filterIcon('modules')}</th><th style="${thS}">Item</th><th style="${thS}">Assignee${filterIcon('devs')}</th><th style="${thS}">Status${filterIcon('statuses')}</th><th style="${thS}">EDD</th><th style="${thS}">Priority${filterIcon('priorities')}</th><th style="${thS}">Ticket ID</th><th style="${thS}">Remark</th></tr></thead>
     <tbody>${rows||'<tr><td colspan="9" style="padding:20px;text-align:center;color:#94a3b8;">No tasks match filters</td></tr>'}</tbody>
   </table>`;
   const wrap=document.getElementById('smry-tbl-wrap');if(wrap)wrap.innerHTML=tbl;
@@ -2066,7 +2097,19 @@ function toast(msg){
 }
 
 // ── BOOT ──────────────────────────────────────────────────
-(function(){populateLoginDropdown();document.getElementById('l-user').focus();})();
+(function(){
+  populateLoginDropdown();
+  const savedUser = localStorage.getItem('scrumboard_user_id');
+  const u = savedUser ? USERS.find(u=>u.id===savedUser) : null;
+  if(u){
+    S.user = u;
+    document.getElementById('login-page').style.display='none';
+    document.getElementById('app').style.display='flex';
+    initApp();
+  } else {
+    document.getElementById('l-user').focus();
+  }
+})();
 </script>
 </body>
 </html>
