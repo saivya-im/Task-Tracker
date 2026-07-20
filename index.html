@@ -1208,7 +1208,7 @@ function renderSprintPlanner(){
             ${cr?`<div style="width:20px;height:20px;border-radius:50%;background:${cr.color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;" title="Created by ${cr.name}">${av(cr)}</div>`:''}
             <span style="font-size:10px;color:var(--text2);">by ${cr?cr.name.split(' ')[0]:'?'}</span>
           </div>
-          ${col.key==='sp_assigned'&&(r==='scrum_master'||r==='manager')?`
+          ${(col.key==='sp_hod_approved'&&r==='scrum_master')||(col.key==='sp_assigned'&&(r==='scrum_master'||r==='manager'))?`
             <button onclick="event.stopPropagation();spAssignDev('${t.id}')" style="padding:3px 8px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">
               ${a?`👤 ${a.name.split(' ')[0]}`:'+ Assign Dev'}
             </button>`:(a?`<div style="display:flex;align-items:center;gap:4px;"><div style="width:18px;height:18px;border-radius:50%;background:${a.color};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;">${av(a)}</div><span style="font-size:10px;color:var(--text2);">${a.name.split(' ')[0]}</span></div>`:'')}
@@ -1291,7 +1291,7 @@ function spOpenTicket(taskId){
         <select onchange="db.update('${t.id}',{sprint_status:this.value});closeModal();renderSprintPlanner();" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
           ${SP_COLS.map(c=>`<option value="${c.key}" ${spStatus===c.key?'selected':''}>${c.label}</option>`).join('')}
         </select>
-        ${spStatus==='sp_assigned'?`<button class="btn btn-secondary btn-sm" onclick="closeModal();spAssignDev('${t.id}')">👤 ${a?'Reassign Dev':'+ Assign Dev'}</button>`:''}
+        ${(spStatus==='sp_assigned'||(spStatus==='sp_hod_approved'&&r==='scrum_master'))?`<button class="btn btn-secondary btn-sm" onclick="closeModal();spAssignDev('${t.id}')">👤 ${a?'Reassign Dev':'+ Assign Dev'}</button>`:''}
       `:''}
     </div>`;
   document.getElementById('moverlay').style.display='flex';
@@ -1317,10 +1317,14 @@ function spAssignDev(taskId){
 }
 function spSaveAssign(taskId){
   const devId=document.getElementById('sp-assign-dev').value;
-  db.update(taskId,{assignee_id:devId||null});
+  const t=db.tasks().find(x=>x.id===taskId);
+  const updates={assignee_id:devId||null};
+  // Auto-advance from HOD Approved to Assigned when dev is set
+  if(devId&&t&&t.sprint_status==='sp_hod_approved') updates.sprint_status='sp_assigned';
+  db.update(taskId,updates);
   closeModal();
   renderSprintPlanner();
-  toast('✅ Developer assigned');
+  toast(devId?'✅ Developer assigned & moved to Assigned':'✅ Assignee cleared');
 }
 function spSendSummary(){
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
