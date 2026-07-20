@@ -1187,6 +1187,7 @@ const SP_COLS=[
 ];
 function spStatusLabel(key){return SP_COLS.find(c=>c.key===key)?.summaryLabel||key;}
 const MGR_IDS=USERS.filter(u=>u.role==='manager').map(u=>u.id);
+const HOD_GCHAT_ID='111419769130302668985'; // HOD Google Chat user ID for @mentions
 
 function renderSprintPlanner(){
   const r=S.user.role;
@@ -1332,23 +1333,44 @@ function spSaveAssign(taskId){
 }
 function spSendSummary(){
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
-  const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  let sections=[];
-  SP_COLS.forEach(col=>{
-    const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key);
-    if(!colTasks.length)return;
-    let lines=[`*${col.summaryLabel}* (${colTasks.length})`];
-    colTasks.forEach(t=>{
-      const cr=uid(t.created_by);
+  const hodMention=`<users/${HOD_GCHAT_ID}>`;
+  let parts=[];
+
+  // ── HOD Approval Pending section ──
+  const pendingTasks=tasks.filter(t=>(t.sprint_status||'sp_created')==='sp_created');
+  if(pendingTasks.length){
+    const ticketLines=pendingTasks.map(t=>{
+      const tk=parseTicket(t.ticket_id);
+      return tk.url?`• <${tk.url}|${tk.id||t.title}>`:` • ${t.title}`;
+    }).join('\n');
+    parts.push(`${hodMention} HOD approval pending for below tickets :\n${ticketLines}`);
+  }
+
+  // ── HOD Approved / To be Assigned section ──
+  const hodApproved=tasks.filter(t=>t.sprint_status==='sp_hod_approved');
+  if(hodApproved.length){
+    const lines=hodApproved.map(t=>{
+      const tk=parseTicket(t.ticket_id);
+      const ref=tk.url?`<${tk.url}|${tk.id||t.title}>`:t.title;
+      return `• ${ref}`;
+    }).join('\n');
+    parts.push(`*To be Assigned* (${hodApproved.length})\n${lines}`);
+  }
+
+  // ── Assigned section ──
+  const assigned=tasks.filter(t=>t.sprint_status==='sp_assigned');
+  if(assigned.length){
+    const lines=assigned.map(t=>{
+      const tk=parseTicket(t.ticket_id);
+      const ref=tk.url?`<${tk.url}|${tk.id||t.title}>`:t.title;
       const a=uid(t.assignee_id);
-      const crTag=cr?`@${cr.name.split(' ')[0]}`:'?';
-      const devTag=a?` → 👤 ${a.name.split(' ')[0]}`:'';
-      const mod=t.module?` [${t.module}]`:'';
-      lines.push(`• ${t.title}${mod} — ${crTag}${devTag}`);
-    });
-    sections.push(lines.join('\n'));
-  });
-  const text=`🗂️ *Sprint Planner Update — ${dateStr}*\n\n${sections.join('\n\n')}`;
+      return `• ${ref}${a?' → 👤 '+a.name.split(' ')[0]:''}`;
+    }).join('\n');
+    parts.push(`*Assigned* (${assigned.length})\n${lines}`);
+  }
+
+  if(!parts.length){toast('No tickets to send');return;}
+  const text=parts.join('\n\n');
   fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
     .then(r=>r.ok?toast('✅ Summary sent to Google Chat'):toast('❌ Webhook failed'))
     .catch(()=>toast('❌ Network error'));
