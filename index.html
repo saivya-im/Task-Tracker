@@ -496,6 +496,23 @@ function fdate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB
 function today(){return new Date().toISOString().split('T')[0];}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
 function slabel(s){return{todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s;}
+function parseTicket(val){
+  if(!val)return{id:'',url:''};
+  if(val.includes('||')){const[id,url]=val.split('||',2);return{id:id.trim(),url:url.trim()};}
+  if(val.startsWith('http')){
+    const m=val.match(/\/work_packages\/(\d+)/)||val.match(/\/browse\/([A-Z0-9]+-\d+)/)||val.match(/\/issues\/(\d+)/);
+    return m?{id:m[1],url:val}:{id:'🔗',url:val};
+  }
+  return{id:val,url:''};
+}
+function renderTicket(val,small){
+  const{id,url}=parseTicket(val);
+  if(!id)return'—';
+  const fs=small?'10px':'11px';
+  const badge=`<span style="font-family:monospace;font-size:${fs};background:#f1f5f9;color:#1e40af;padding:2px 7px;border-radius:4px;font-weight:700;">${id}</span>`;
+  if(url)return`<a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:3px;">${badge}<span style="font-size:10px;color:#3b82f6;">↗</span></a>`;
+  return badge;
+}
 function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',review:'ch-review',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped'}[s]||'ch-todo';}
 function isBreached(t){const e=t.edd_sm||t.edd;if(!e||t.status==='done')return false;return new Date(e)<new Date(today());}
 function isAging(t){if(t.status!=='in_progress')return false;return(Date.now()-new Date(t.updated_at||t.created_at))/(864e5)>=3;}
@@ -1103,7 +1120,7 @@ function renderTable(){
             <td style="${tdStyle}" onclick="event.stopPropagation()">${statusDropdown(t)}</td>
             <td style="${tdStyle}white-space:nowrap;${br?'color:var(--blocked);font-weight:700;':''}">${edd?fdate(edd)+(br?' ⚠️':''):'—'}</td>
             <td style="${tdStyle}"><span class="chip ch-${t.priority}">${t.priority||'—'}</span></td>
-            <td style="${tdStyle}"><span style="font-family:monospace;font-size:11px;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${t.ticket_id||'—'}</span></td>
+            <td style="${tdStyle}">${renderTicket(t.ticket_id,true)}</td>
             <td style="${tdStyle}color:var(--text2);font-size:11px;max-width:180px;">${t.remark||'—'}</td>
           </tr>`;
         }).join('')}
@@ -1267,7 +1284,7 @@ function openDrawer(taskId){
           <div class="meta-item"><label>Module</label><p>${t.module||'—'}</p></div>
           <div class="meta-item"><label>Medium</label><p>${t.medium||'—'}</p></div>
           <div class="meta-item"><label>Created By</label><p>${cb?cb.name:'—'}</p></div>
-          ${t.ticket_id?`<div class="meta-item"><label>Ticket ID</label><p><span style="font-family:monospace;background:#f1f5f9;padding:2px 6px;border-radius:4px;">${t.ticket_id}</span></p></div>`:''}
+          ${t.ticket_id?`<div class="meta-item"><label>Ticket</label><p>${renderTicket(t.ticket_id)}</p></div>`:''}
           ${t.remark?`<div class="meta-item" style="grid-column:1/-1"><label>Remark</label><p>${t.remark}</p></div>`:''}
           <div class="meta-item">
             <label>Manager EDD</label>
@@ -1489,7 +1506,8 @@ function showTaskModal(){
     <div class="fr">
       <div class="fg"><label>Assignee</label><select id="m-dev"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select></div>
       <div class="fg"><label>EDD</label><input type="date" id="m-edd"/></div>
-      <div class="fg"><label>Ticket ID</label><input type="text" id="m-ticket" placeholder="e.g. JIRA-1234"/></div>
+      <div class="fg"><label>Ticket ID</label><input type="text" id="m-ticket" placeholder="e.g. WP-679001"/></div>
+      <div class="fg"><label>Ticket Link (URL)</label><input type="url" id="m-tlink" placeholder="https://project.intermesh.net/…" oninput="autoFillTicketId()"/></div>
       <div class="fg"><label>Remark</label><input type="text" id="m-remark" placeholder="Short note or dependency info"/></div>
     </div>
     <div class="fg"><label>Task Source</label><select id="m-src"><option value="sprint">Sprint (Monday planned)</option><option value="ad-hoc">Mid-week Ad-hoc</option></select></div>
@@ -1527,7 +1545,7 @@ function submitTask(){
     const t=row.querySelector('.str-t').value.trim();
     if(t)subtasks.push({id:'st'+Date.now()+Math.random(),title:t,assignee_id:row.querySelector('.str-a').value||document.getElementById('m-dev').value,edd:row.querySelector('.str-e').value||null,status:'todo'});
   });
-  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:document.getElementById('m-ticket').value||null,remark:document.getElementById('m-remark').value||null,status:'todo',created_by:S.user.id,subtasks});
+  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',created_by:S.user.id,subtasks});
   closeModal();toast('✅ Task created');render();
 }
 
@@ -1796,7 +1814,9 @@ function suEditTask(taskId){
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">TICKET ID</label>
-        <input id="se-ticket" value="${t.ticket_id||''}" placeholder="JIRA-1234" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;"></div>
+        <input id="se-ticket" value="${parseTicket(t.ticket_id).id}" placeholder="679001" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;"></div>
+        <div style="grid-column:1/-1;"><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">TICKET LINK</label>
+        <input id="se-tlink" value="${parseTicket(t.ticket_id).url}" placeholder="https://project.intermesh.net/…" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;box-sizing:border-box;"></div>
         <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">BLOCKER REASON</label>
         <input id="se-blocker" value="${t.blocker_reason||''}" placeholder="What's blocking?" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;"></div>
       </div>
@@ -1808,6 +1828,14 @@ function suEditTask(taskId){
       </div>
     </div>`;
   document.body.appendChild(ol);
+}
+function autoFillTicketId(){
+  const url=document.getElementById('m-tlink').value.trim();
+  const idField=document.getElementById('m-ticket');
+  if(!idField.value&&url){
+    const m=url.match(/\/work_packages\/(\d+)/)||url.match(/\/browse\/([A-Z0-9]+-\d+)/)||url.match(/\/issues\/(\d+)/);
+    if(m)idField.value=m[1];
+  }
 }
 function suSaveEdit(taskId){
   db.update(taskId,{
@@ -1821,7 +1849,7 @@ function suSaveEdit(taskId){
     edd:document.getElementById('se-edd-m').value||null,
     edd_sm:document.getElementById('se-edd-sm').value||null,
     blocker_reason:document.getElementById('se-blocker').value||null,
-    ticket_id:document.getElementById('se-ticket').value||null,
+    ticket_id:(()=>{const id=(document.getElementById('se-ticket').value||'').trim();const url=(document.getElementById('se-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),
     remark:document.getElementById('se-remark').value||null,
   });
   document.getElementById('su-edit-overlay').remove();
@@ -1960,7 +1988,7 @@ function renderSummaryTable(){
         <td style="${tdS}"><span class="chip ${schip(t.status)}" style="font-size:10px;">${slabel(t.status)}</span></td>
         <td style="${tdS}white-space:nowrap;${br?'color:var(--blocked);font-weight:700;':''}">${edd?fdate(edd)+(br?' ⚠️':''):'—'}</td>
         <td style="${tdS}"><span class="chip ch-${t.priority}" style="font-size:10px;">${t.priority||'—'}</span></td>
-        <td style="${tdS}font-family:monospace;font-size:11px;">${t.ticket_id||'—'}</td>
+        <td style="${tdS}">${renderTicket(t.ticket_id,true)}</td>
         <td style="${tdS}color:var(--text2);font-size:11px;max-width:160px;">${t.remark||''}</td>
       </tr>`;
     });
@@ -2005,7 +2033,7 @@ async function doSheetExport(url){
         edd:t.edd?fdate(t.edd):'',
         edd_sm:t.edd_sm?fdate(t.edd_sm):'',
         priority:t.priority||'',
-        ticket_id:t.ticket_id||'',
+        ticket_id:parseTicket(t.ticket_id).id,
         remark
       });
     });
