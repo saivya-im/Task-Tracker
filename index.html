@@ -97,6 +97,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ch-discussion{background:#ccfbf1;color:#0f766e;}
 .ch-dependant{background:#ede9fe;color:#7c3aed;}
 .ch-dropped{background:#ffedd5;color:#c2410c;}
+.ch-on_leave{background:#fee2e2;color:#ef4444;}
 .ch-P1{background:#fee2e2;color:#dc2626;}
 .ch-P2{background:#fef3c7;color:#d97706;}
 .ch-P3{background:#f1f5f9;color:#64748b;}
@@ -495,7 +496,7 @@ function av(u){return u?u.name.split(' ').map(n=>n[0]).join('').slice(0,2):'?';}
 function fdate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
 function today(){return new Date().toISOString().split('T')[0];}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
-function slabel(s){return{todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'}[s]||s;}
+function slabel(s){return{todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped',on_leave:'On Leave'}[s]||s;}
 function parseTicket(val){
   if(!val)return{id:'',url:''};
   if(val.includes('||')){const[id,url]=val.split('||',2);return{id:id.trim(),url:url.trim()};}
@@ -513,7 +514,7 @@ function renderTicket(val,small){
   if(url)return`<a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:3px;">${badge}<span style="font-size:10px;color:#3b82f6;">↗</span></a>`;
   return badge;
 }
-function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',review:'ch-review',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped'}[s]||'ch-todo';}
+function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',review:'ch-review',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped',on_leave:'ch-on_leave'}[s]||'ch-todo';}
 function isBreached(t){const e=t.edd_sm||t.edd;if(!e||t.status==='done')return false;return new Date(e)<new Date(today());}
 function isAging(t){if(t.status!=='in_progress')return false;return(Date.now()-new Date(t.updated_at||t.created_at))/(864e5)>=3;}
 function progColor(p){return p>=80?'#22c55e':p>=40?'#3b82f6':'#f59e0b';}
@@ -1940,7 +1941,7 @@ function suSaveEdit(taskId){
 let _SF={devs:null,statuses:null,modules:null,priorities:null};// null=all selected
 const _SFOpts={
   devs:()=>devs().map(d=>({val:d.id,label:d.name.split(' ')[0]})),
-  statuses:()=>['todo','in_progress','review','discussion','dependant','blocked','dropped','done'].map(s=>({val:s,label:slabel(s)})),
+  statuses:()=>['todo','in_progress','review','discussion','dependant','blocked','dropped','done','on_leave'].map(s=>({val:s,label:slabel(s)})),
   modules:()=>[''].concat(MODULES).map(m=>({val:m,label:m||'No module'})),
   priorities:()=>['P1','P2','P3'].map(p=>({val:p,label:p}))
 };
@@ -2018,14 +2019,16 @@ function renderSummaryTable(){
   devs().forEach(dev=>{
     if(!_SF.devs.has(dev.id))return;
     let dt=allTasks.filter(t=>t.assignee_id===dev.id&&_SF.statuses.has(t.status)&&_SF.priorities.has(t.priority)&&_SF.modules.has(t.module||''));
-    // Show "On Leave" row for absent devs regardless of task filter
+    // Absent devs: show On Leave row (respects status filter)
     if(S.absentDevs.has(dev.id)){
-      rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#fff8f8;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div style="width:22px;height:22px;border-radius:50%;background:${dev.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;opacity:.5;">${av(dev)}</div>
-          <span style="opacity:.6">${dev.name}</span>
-          <span style="font-size:11px;font-weight:700;background:#fee2e2;color:#ef4444;border-radius:20px;padding:2px 10px;">🏖 On Leave Today</span>
-        </div></td></tr>`;
+      if(_SF.statuses.has('on_leave')){
+        rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#fff8f8;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div style="width:22px;height:22px;border-radius:50%;background:${dev.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;opacity:.5;">${av(dev)}</div>
+            <span style="opacity:.6">${dev.name}</span>
+            <span class="chip ch-on_leave" style="font-size:10px;">🏖 On Leave Today</span>
+          </div></td></tr>`;
+      }
       return;
     }
     if(!dt.length)return;
