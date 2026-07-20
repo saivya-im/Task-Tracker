@@ -2034,14 +2034,14 @@ function renderSummaryTable(){
   const filterIcon=(group)=>`<span style="cursor:pointer;margin-left:5px;opacity:0.7;font-size:10px;padding:2px 4px;background:rgba(255,255,255,0.1);border-radius:4px;display:inline-flex;align-items:center;" onclick="openSmryFilter(event,'${group}')" title="Filter">▼</span>`;
   const thS='padding:9px 12px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;white-space:nowrap;border-bottom:2px solid rgba(255,255,255,.15);background:#1e3a5f;';
   const tdS='padding:8px 12px;font-size:12px;border-bottom:1px solid var(--border);vertical-align:middle;';
-  let rows='';let rowCount=0;
+  let rows='';let leaveRows='';let rowCount=0;
   devs().forEach(dev=>{
     if(!_SF.devs.has(dev.id))return;
     let dt=allTasks.filter(t=>t.assignee_id===dev.id&&_SF.statuses.has(t.status)&&_SF.priorities.has(t.priority)&&_SF.modules.has(t.module||''));
-    // Absent devs: show On Leave row (respects status filter)
+    // Absent devs: collect separately to show at end
     if(S.absentDevs.has(dev.id)){
       if(_SF.statuses.has('on_leave')){
-        rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#fff8f8;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
+        leaveRows+=`<tr><td colspan="9" style="padding:8px 12px;background:#fff8f8;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
           <div style="display:flex;align-items:center;gap:8px;">
             <div style="width:22px;height:22px;border-radius:50%;background:${dev.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;opacity:.5;">${av(dev)}</div>
             <span style="opacity:.6">${dev.name}</span>
@@ -2073,6 +2073,7 @@ function renderSummaryTable(){
       </tr>`;
     });
   });
+  rows+=leaveRows;
   const tbl=`<table style="width:100%;border-collapse:collapse;background:#fff;">
     <thead style="position:sticky;top:0;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.1);"><tr><th style="${thS}">Date</th><th style="${thS}">Module${filterIcon('modules')}</th><th style="${thS}">Item</th><th style="${thS}">Assignee${filterIcon('devs')}</th><th style="${thS}">Status${filterIcon('statuses')}</th><th style="${thS}">EDD</th><th style="${thS}">Priority${filterIcon('priorities')}</th><th style="${thS}">Ticket ID</th><th style="${thS}">Remark</th></tr></thead>
     <tbody>${rows||'<tr><td colspan="9" style="padding:20px;text-align:center;color:#94a3b8;">No tasks match filters</td></tr>'}</tbody>
