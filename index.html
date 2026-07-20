@@ -1196,7 +1196,7 @@ function renderSprintPlanner(){
     +`<button class="btn btn-secondary btn-sm" onclick="spSendSummary()">📨 Send Summary</button>`;
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
   const cols=SP_COLS.map(col=>{
-    const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key&&(col.key!=='sp_created'||!t.assignee_id));
+    const colTasks=tasks.filter(t=>t.sprint_status===col.key&&(col.key!=='sp_created'||!t.assignee_id));
     const cards=colTasks.map(t=>{
       const cr=uid(t.created_by),a=uid(t.assignee_id);
       return`<div class="sp-card" draggable="true"
@@ -1337,7 +1337,7 @@ function spSendSummary(){
   let parts=[];
 
   // ── HOD Approval Pending section ──
-  const pendingTasks=tasks.filter(t=>(t.sprint_status||'sp_created')==='sp_created');
+  const pendingTasks=tasks.filter(t=>t.sprint_status==='sp_created'&&!t.assignee_id);
   if(pendingTasks.length){
     const ticketLines=pendingTasks.map(t=>{
       const tk=parseTicket(t.ticket_id);
