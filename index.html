@@ -1197,7 +1197,15 @@ function renderSprintPlanner(){
     +`<button class="btn btn-secondary btn-sm" onclick="spSendSummary()">📨 Send Summary</button>`;
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
   const cols=SP_COLS.map(col=>{
-    const colTasks=tasks.filter(t=>t.sprint_status===col.key||(col.key==='sp_created'&&!t.sprint_status&&!t.assignee_id));
+    const DONE_STATUSES=['done','dropped'];
+    const colTasks=tasks.filter(t=>{
+      if(col.key==='sp_created'){
+        const explicit=t.sprint_status==='sp_created';
+        const implicit=!t.sprint_status&&!t.assignee_id&&MGR_IDS.includes(t.created_by);
+        return (explicit||implicit)&&!DONE_STATUSES.includes(t.status);
+      }
+      return t.sprint_status===col.key;
+    });
     const cards=colTasks.map(t=>{
       const cr=uid(t.created_by),a=uid(t.assignee_id);
       return`<div class="sp-card" draggable="true"
@@ -1326,11 +1334,15 @@ function spSaveAssign(taskId){
   const t=db.tasks().find(x=>x.id===taskId);
   const updates={assignee_id:devId||null};
   // Auto-advance from HOD Approved to Assigned when dev is set
-  if(devId&&t&&t.sprint_status==='sp_hod_approved') updates.sprint_status='sp_assigned';
+  if(devId&&t&&t.sprint_status==='sp_hod_approved'){
+    updates.sprint_status='sp_assigned';
+    // Move to 'todo' (To be Picked) on developer dashboard if not already active
+    if(['todo','done','dropped'].includes(t.status)||!t.status) updates.status='todo';
+  }
   db.update(taskId,updates);
   closeModal();
   renderSprintPlanner();
-  toast(devId?'✅ Developer assigned & moved to Assigned':'✅ Assignee cleared');
+  toast(devId?'✅ Developer assigned — ticket moved to To be Picked':'✅ Assignee cleared');
 }
 function spSendSummary(){
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
@@ -1513,7 +1525,7 @@ function openDrawer(taskId){
         </div>
         ${t.description?`<div style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.6;">${t.description}</div>`:''}
         ${t.blocker_reason?`<div class="blocker-box">🚫 Blocker: ${t.blocker_reason}</div>`:''}
-        ${(r==='manager'||r==='scrum_master')&&!['sp_created','sp_hod_approved','sp_assigned'].includes(t.sprint_status)?`
+        ${(r==='manager'||r==='scrum_master')&&!['sp_created','sp_hod_approved','sp_assigned'].includes(t.sprint_status)&&!['done','dropped'].includes(t.status)?`
         <div style="margin-top:10px;">
           <button onclick="db.update('${t.id}',{sprint_status:'sp_created'});openDrawer('${t.id}');toast('Marked as HOD Approval Pending');" style="width:100%;padding:7px 12px;background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
             🗂️ Mark as HOD Approval Pending
