@@ -126,7 +126,15 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* BOARD */
 .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;}
-.board-col{flex-shrink:0;width:235px;}.board-col.drag-over{background:rgba(59,130,246,.06);border-radius:10px;outline:2px dashed #3b82f6;}.tcard.dragging{opacity:.4;}
+.board-col{flex-shrink:0;width:235px;}.board-col.drag-over{background:rgba(59,130,246,.06);border-radius:10px;outline:2px dashed #3b82f6;}
+.sp-board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:4px 0;height:calc(100vh - 160px);}
+.sp-col{background:#f8fafc;border-radius:12px;border:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
+.sp-col-hdr{padding:12px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;display:flex;align-items:center;justify-content:space-between;}
+.sp-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
+.sp-card{background:#fff;border-radius:10px;border:1.5px solid var(--border);padding:12px;cursor:grab;transition:box-shadow .15s;}
+.sp-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.08);}
+.sp-card.dragging{opacity:.4;}
+.sp-col.sp-drag-over{outline:2px dashed #3b82f6;background:rgba(59,130,246,.04);}.tcard.dragging{opacity:.4;}
 .board-col-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;}
 .bcol-title{font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
 .bcol-count{background:var(--border);color:var(--text2);font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;}
@@ -698,6 +706,7 @@ function buildNav(){
     items.push({id:'board',icon:'📋',label:'Team Board'});
   }
   if(r==='manager'||r==='scrum_master')items.push({id:'table',icon:'📊',label:'Table View'});
+  if(r==='manager'||r==='scrum_master')items.push({id:'planner',icon:'🗂️',label:'Sprint Planner'});
   items.push({id:'bugs',icon:'🐛',label:'Bug Summary'});
   items.push({id:'sprint',icon:'📊',label:'Sprint Summary'});
   document.getElementById('snav').innerHTML=items.map(it=>`
@@ -714,7 +723,7 @@ function nav(view){
 }
 
 function render(){
-  const titles={board:'Board',workload:'Workload','my-tasks':'My Tasks',bugs:'Bug Summary',sprint:'Sprint Summary',table:'Table View'};
+  const titles={board:'Board',workload:'Workload','my-tasks':'My Tasks',bugs:'Bug Summary',sprint:'Sprint Summary',table:'Table View',planner:'Sprint Planner'};
   document.getElementById('pg-title').textContent=titles[S.view]||'';
   document.getElementById('pg-sub').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
   document.getElementById('pg-actions').innerHTML='';
@@ -725,6 +734,7 @@ function render(){
   else if(S.view==='bugs')renderBugSummary();
   else if(S.view==='sprint')renderSprint();
   else if(S.view==='table')renderTable();
+  else if(S.view==='planner')renderSprintPlanner();
 }
 
 // ── BOARD ─────────────────────────────────────────────────
@@ -800,7 +810,7 @@ function rbc(){
   }).join('')+'</div>';
 }
 
-let _dragId=null;
+let _dragId=null;let _spDragId=null;
 function dragStart(e,id){_dragId=id;e.currentTarget.classList.add('dragging');e.dataTransfer.effectAllowed='move';}
 function dropOnCol(e,status){
   e.preventDefault();
@@ -1162,6 +1172,99 @@ function saveBugCount(devId,field,value){
 }
 
 // ── SPRINT SUMMARY ────────────────────────────────────────
+// ── SPRINT PLANNER ────────────────────────────────────────
+const SP_COLS=[
+  {key:'sp_created',label:'Created',color:'#475569',bg:'#475569'},
+  {key:'sp_mgr_approved',label:'Approved by Manager',color:'#0369a1',bg:'#0369a1'},
+  {key:'sp_hod_approved',label:'Approved by HOD',color:'#7c3aed',bg:'#7c3aed'},
+  {key:'sp_assigned',label:'Assigned',color:'#16a34a',bg:'#16a34a'},
+];
+const MGR_IDS=USERS.filter(u=>u.role==='manager').map(u=>u.id);
+
+function renderSprintPlanner(){
+  const r=S.user.role;
+  const act=document.getElementById('pg-actions');
+  act.innerHTML=r==='manager'?`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Ticket</button>`:'';
+  const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
+  const cols=SP_COLS.map(col=>{
+    const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key);
+    const cards=colTasks.map(t=>{
+      const cr=uid(t.created_by),a=uid(t.assignee_id);
+      return`<div class="sp-card" draggable="true"
+        ondragstart="spDragStart(event,'${t.id}')"
+        ondragend="this.classList.remove('dragging')"
+        onclick="openDrawer('${t.id}')">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px;">
+          <div style="font-size:12px;font-weight:700;line-height:1.4;flex:1;">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>
+          <span class="chip ch-${t.priority}" style="font-size:9px;flex-shrink:0;">${t.priority||'—'}</span>
+        </div>
+        ${t.module?`<div style="margin-bottom:6px;"><span style="font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;padding:1px 7px;border-radius:10px;">📦 ${t.module}</span></div>`:''}
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+          <div style="display:flex;align-items:center;gap:5px;">
+            ${cr?`<div style="width:20px;height:20px;border-radius:50%;background:${cr.color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;" title="Created by ${cr.name}">${av(cr)}</div>`:''}
+            <span style="font-size:10px;color:var(--text2);">by ${cr?cr.name.split(' ')[0]:'?'}</span>
+          </div>
+          ${col.key==='sp_assigned'&&(r==='scrum_master'||r==='manager')?`
+            <button onclick="event.stopPropagation();spAssignDev('${t.id}')" style="padding:3px 8px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">
+              ${a?`👤 ${a.name.split(' ')[0]}`:'+ Assign Dev'}
+            </button>`:(a?`<div style="display:flex;align-items:center;gap:4px;"><div style="width:18px;height:18px;border-radius:50%;background:${a.color};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;">${av(a)}</div><span style="font-size:10px;color:var(--text2);">${a.name.split(' ')[0]}</span></div>`:'')}
+        </div>
+        ${renderTicket(t.ticket_id,true)!='—'?`<div style="margin-top:6px;">${renderTicket(t.ticket_id,true)}</div>`:''}
+      </div>`;
+    }).join('');
+    return`<div class="sp-col" ondragover="event.preventDefault();this.classList.add('sp-drag-over')" ondragleave="this.classList.remove('sp-drag-over')" ondrop="spDrop(event,'${col.key}')">
+      <div class="sp-col-hdr" style="background:${col.bg};">
+        <span>${col.label}</span>
+        <span style="background:rgba(255,255,255,.25);border-radius:20px;padding:1px 8px;font-size:11px;">${colTasks.length}</span>
+      </div>
+      <div class="sp-col-body">${cards||'<div style="font-size:11px;color:var(--text2);text-align:center;margin-top:20px;">No tickets</div>'}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('content').innerHTML=`<div class="sp-board">${cols}</div>`;
+}
+
+function spDragStart(e,id){
+  _spDragId=id;
+  setTimeout(()=>e.target.classList.add('dragging'),0);
+  e.dataTransfer.effectAllowed='move';
+}
+function spDrop(e,spStatus){
+  e.preventDefault();
+  e.currentTarget.classList.remove('sp-drag-over');
+  if(!_spDragId)return;
+  db.update(_spDragId,{sprint_status:spStatus});
+  _spDragId=null;
+  renderSprintPlanner();
+  toast('Moved to: '+SP_COLS.find(c=>c.key===spStatus)?.label);
+}
+function spAssignDev(taskId){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const cur=t.assignee_id||'';
+  const opts=devs().map(d=>`<option value="${d.id}" ${cur===d.id?'selected':''}>${d.name}</option>`).join('');
+  document.getElementById('modal').style.cssText='width:320px;max-width:95vw;';
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-hdr"><h3>Assign Developer</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="padding:4px 0 16px;">
+      <label style="font-size:11px;font-weight:700;color:var(--text2);display:block;margin-bottom:6px;">SELECT DEVELOPER</label>
+      <select id="sp-assign-dev" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <option value="">Unassigned</option>${opts}
+      </select>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="spSaveAssign('${taskId}')">Assign</button>
+    </div>`;
+  document.getElementById('moverlay').style.display='flex';
+}
+function spSaveAssign(taskId){
+  const devId=document.getElementById('sp-assign-dev').value;
+  db.update(taskId,{assignee_id:devId||null});
+  closeModal();
+  renderSprintPlanner();
+  toast('✅ Developer assigned');
+}
+
+
 function renderSprint(){
   const tasks=db.tasks();
   const done=tasks.filter(t=>t.status==='done'),carried=tasks.filter(t=>t.is_carried);
@@ -1595,7 +1698,7 @@ function showTaskModal(){
       <div class="fg"><label>Medium</label><select id="m-med"><option value="">— Select —</option>${MEDIUMS.map(m=>`<option value="${m}">${m}</option>`).join('')}</select></div>
     </div>
     <div class="fr">
-      <div class="fg"><label>Assignee</label><select id="m-dev"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select></div>
+      ${S.user.role!=='manager'?`<div class="fg"><label>Assignee</label><select id="m-dev"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select></div>`:'<input type="hidden" id="m-dev" value="">'}
       <div class="fg"><label>EDD</label><input type="date" id="m-edd"/></div>
       <div class="fg"><label>Ticket ID</label><input type="text" id="m-ticket" placeholder="e.g. WP-679001"/></div>
       <div class="fg"><label>Ticket Link (URL)</label><input type="url" id="m-tlink" placeholder="https://project.intermesh.net/…" oninput="autoFillTicketId()"/></div>
@@ -1636,7 +1739,7 @@ function submitTask(){
     const t=row.querySelector('.str-t').value.trim();
     if(t)subtasks.push({id:'st'+Date.now()+Math.random(),title:t,assignee_id:row.querySelector('.str-a').value||document.getElementById('m-dev').value,edd:row.querySelector('.str-e').value||null,status:'todo'});
   });
-  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',created_by:S.user.id,subtasks});
+  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',sprint_status:S.user.role==='manager'?'sp_created':null,created_by:S.user.id,subtasks});
   closeModal();toast('✅ Task created');render();
 }
 
