@@ -1187,6 +1187,7 @@ const SP_COLS=[
 ];
 function spStatusLabel(key){return SP_COLS.find(c=>c.key===key)?.summaryLabel||key;}
 const MGR_IDS=USERS.filter(u=>u.role==='manager').map(u=>u.id);
+const SP_LABELS={sp_created:'HOD Approval Pending',sp_hod_approved:'Approved by HOD',sp_assigned:'Assigned'};
 const HOD_GCHAT_ID='111419769130302668985'; // HOD Google Chat user ID for @mentions
 
 function renderSprintPlanner(){
@@ -1196,7 +1197,7 @@ function renderSprintPlanner(){
     +`<button class="btn btn-secondary btn-sm" onclick="spSendSummary()">📨 Send Summary</button>`;
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
   const cols=SP_COLS.map(col=>{
-    const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key&&(col.key!=='sp_created'||!t.assignee_id));
+    const colTasks=tasks.filter(t=>t.sprint_status===col.key||(col.key==='sp_created'&&!t.sprint_status&&!t.assignee_id));
     const cards=colTasks.map(t=>{
       const cr=uid(t.created_by),a=uid(t.assignee_id);
       return`<div class="sp-card" draggable="true"
@@ -1512,6 +1513,20 @@ function openDrawer(taskId){
         </div>
         ${t.description?`<div style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.6;">${t.description}</div>`:''}
         ${t.blocker_reason?`<div class="blocker-box">🚫 Blocker: ${t.blocker_reason}</div>`:''}
+        ${(r==='manager'||r==='scrum_master')&&!['sp_created','sp_hod_approved','sp_assigned'].includes(t.sprint_status)?`
+        <div style="margin-top:10px;">
+          <button onclick="db.update('${t.id}',{sprint_status:'sp_created'});openDrawer('${t.id}');toast('Marked as HOD Approval Pending');" style="width:100%;padding:7px 12px;background:#fff7ed;color:#c2410c;border:1.5px solid #fed7aa;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+            🗂️ Mark as HOD Approval Pending
+          </button>
+        </div>`:''}
+        ${['sp_created','sp_hod_approved','sp_assigned'].includes(t.sprint_status)?`
+        <div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;background:#f8fafc;border:1.5px solid var(--border);border-radius:8px;padding:8px 12px;">
+          <div>
+            <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;">Sprint Planner Status</div>
+            <div style="font-size:12px;font-weight:700;margin-top:2px;color:${t.sprint_status==='sp_created'?'#475569':t.sprint_status==='sp_hod_approved'?'#7c3aed':'#16a34a'};">${SP_LABELS[t.sprint_status]||t.sprint_status}</div>
+          </div>
+          ${r==='manager'||r==='scrum_master'?`<button onclick="db.update('${t.id}',{sprint_status:null});openDrawer('${t.id}');toast('Removed from Sprint Planner');" style="padding:4px 8px;background:none;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text2);cursor:pointer;">Remove</button>`:''}
+        </div>`:''}
       </div>
       <div class="sep"></div>
       <div class="dsec">
