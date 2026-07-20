@@ -740,7 +740,7 @@ function renderBoard(){
   c.innerHTML=`
     <div class="filter-bar">
       <input type="text" id="fs" placeholder="🔍 Search…" oninput="rbc()" style="width:160px;">
-      <select id="fd" onchange="rbc()"><option value="">All Developers</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
+      <select id="fd" onchange="rbc()"><option value="">All Developers</option><option value="__unassigned__">Unassigned</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
       <select id="ft" onchange="rbc()"><option value="">All Types</option><option value="feature">✨ Feature</option><option value="bug">🐛 Bug</option><option value="optimisation">⚡ Optimisation</option><option value="ad-hoc">🔀 Ad-hoc</option><option value="chore">🔧 Chore</option></select>
       <select id="fp" onchange="rbc()"><option value="">All Priorities</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select>
       <select id="fm" onchange="rbc()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
@@ -766,7 +766,7 @@ function filtered(){
   const f=gf();
   return db.tasks().filter(t=>{
     if(f.s&&!t.title.toLowerCase().includes(f.s))return false;
-    if(f.d&&t.assignee_id!==f.d)return false;
+    if(f.d){if(f.d==='__unassigned__'){if(t.assignee_id)return false;}else if(t.assignee_id!==f.d)return false;}
     if(f.t&&t.type!==f.t)return false;
     if(f.p&&t.priority!==f.p)return false;
     if(f.m&&t.module!==f.m)return false;
@@ -1041,7 +1041,7 @@ function renderTable(){
   c.innerHTML=`
     <div class="filter-bar" style="margin-bottom:14px;">
       <input type="text" id="tfs" placeholder="🔍 Search…" oninput="renderTable()" style="width:160px;">
-      <select id="tfd" onchange="renderTable()"><option value="">All Developers</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
+      <select id="tfd" onchange="renderTable()"><option value="">All Developers</option><option value="__unassigned__">Unassigned</option>${devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('')}</select>
       <select id="tft" onchange="renderTable()"><option value="">All Types</option><option value="feature">✨ Feature</option><option value="bug">🐛 Bug</option><option value="optimisation">⚡ Optimisation</option><option value="ad-hoc">🔀 Ad-hoc</option><option value="chore">🔧 Chore</option></select>
       <select id="tfs2" onchange="renderTable()"><option value="">All Statuses</option><option value="todo">To be Picked</option><option value="in_progress">WIP</option><option value="review">Review/Test</option><option value="discussion">Discussion</option><option value="dependant">Dependant</option><option value="blocked">Blocked</option><option value="dropped">Dropped</option><option value="done">Done</option></select>
       <select id="tfm" onchange="renderTable()"><option value="">All Modules</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select>
@@ -1060,7 +1060,7 @@ function renderTable(){
 
   let rows=tasks.filter(t=>{
     if(tf2.s&&!t.title.toLowerCase().includes(tf2.s.toLowerCase()))return false;
-    if(tf2.d&&t.assignee_id!==tf2.d)return false;
+    if(tf2.d){if(tf2.d==='__unassigned__'){if(t.assignee_id)return false;}else if(t.assignee_id!==tf2.d)return false;}
     if(tf2.t&&t.type!==tf2.t)return false;
     if(tf2.st&&t.status!==tf2.st)return false;
     if(tf2.m&&t.module!==tf2.m)return false;
@@ -1890,7 +1890,7 @@ function suEditTask(taskId){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
         <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">REASSIGN TO</label>
         <select id="se-dev" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
-          ${devs().map(d=>`<option value="${d.id}" ${t.assignee_id===d.id?'selected':''} style="background:#1e293b">${d.name}</option>`).join('')}
+          <option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}" ${t.assignee_id===d.id?'selected':''} style="background:#1e293b">${d.name}</option>`).join('')}
         </select></div>
         <div><label style="font-size:11px;font-weight:700;color:rgba(255,255,255,.5);display:block;margin-bottom:5px;">MODULE</label>
         <select id="se-mod" style="width:100%;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:8px;padding:8px 10px;color:#fff;font-size:13px;outline:none;">
@@ -1959,7 +1959,7 @@ function suSaveEdit(taskId){
 // ── SUMMARY ───────────────────────────────────────────────
 let _SF={devs:null,statuses:null,modules:null,priorities:null};// null=all selected
 const _SFOpts={
-  devs:()=>devs().map(d=>({val:d.id,label:d.name.split(' ')[0]})),
+  devs:()=>[{val:'__unassigned__',label:'Unassigned'}].concat(devs().map(d=>({val:d.id,label:d.name.split(' ')[0]}))),
   statuses:()=>['todo','in_progress','review','discussion','dependant','blocked','dropped','done','on_leave'].map(s=>({val:s,label:slabel(s)})),
   modules:()=>[''].concat(MODULES).map(m=>({val:m,label:m||'No module'})),
   priorities:()=>['P1','P2','P3'].map(p=>({val:p,label:p}))
@@ -2077,6 +2077,27 @@ function renderSummaryTable(){
     <thead style="position:sticky;top:0;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.1);"><tr><th style="${thS}">Date</th><th style="${thS}">Module${filterIcon('modules')}</th><th style="${thS}">Item</th><th style="${thS}">Assignee${filterIcon('devs')}</th><th style="${thS}">Status${filterIcon('statuses')}</th><th style="${thS}">EDD</th><th style="${thS}">Priority${filterIcon('priorities')}</th><th style="${thS}">Ticket ID</th><th style="${thS}">Remark</th></tr></thead>
     <tbody>${rows||'<tr><td colspan="9" style="padding:20px;text-align:center;color:#94a3b8;">No tasks match filters</td></tr>'}</tbody>
   </table>`;
+  // Unassigned tasks section
+  const unassignedTasks=allTasks.filter(t=>!t.assignee_id&&_SF.statuses.has(t.status)&&_SF.priorities.has(t.priority)&&_SF.modules.has(t.module||''));
+  if(_SF.devs.has('__unassigned__')&&unassignedTasks.length){
+    rowCount+=unassignedTasks.length;
+    rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#f8fafc;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:8px;"><div style="width:22px;height:22px;border-radius:50%;background:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;">?</div>Unassigned</div></td></tr>`;
+    unassignedTasks.forEach(t=>{
+      const edd=t.edd_sm||t.edd;const br=isBreached(t);
+      const d2=t.created_at?new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—';
+      rows+=`<tr>
+        <td style="${tdS}white-space:nowrap;color:var(--text2);font-size:11px;">${d2}</td>
+        <td style="${tdS}">${t.module?`<span style="font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:10px;">${t.module}</span>`:'—'}</td>
+        <td style="${tdS}max-width:300px;"><div style="font-weight:600;line-height:1.4;">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>${t.blocker_reason?`<div style="font-size:10px;color:var(--blocked);margin-top:1px;">🚫 ${t.blocker_reason}</div>`:''}</td>
+        <td style="${tdS}white-space:nowrap;font-size:11px;color:var(--text2);">—</td>
+        <td style="${tdS}"><span class="chip ${schip(t.status)}" style="font-size:10px;">${slabel(t.status)}</span></td>
+        <td style="${tdS}white-space:nowrap;${br?'color:var(--blocked);font-weight:700;':''}">${edd?fdate(edd)+(br?' ⚠️':''):'—'}</td>
+        <td style="${tdS}"><span class="chip ch-${t.priority}" style="font-size:10px;">${t.priority||'—'}</span></td>
+        <td style="${tdS}">${renderTicket(t.ticket_id,true)}</td>
+        <td style="${tdS}color:var(--text2);font-size:11px;max-width:160px;">${t.remark||''}</td>
+      </tr>`;
+    });
+  }
   const wrap=document.getElementById('smry-tbl-wrap');if(wrap)wrap.innerHTML=tbl;
   const cnt=document.getElementById('smry-count');if(cnt)cnt.textContent=`${rowCount} tasks shown`;
 }
