@@ -1280,11 +1280,26 @@ function openDrawer(taskId){
       <div class="dsec">
         <div class="dsec-title">Details</div>
         <div class="meta-grid">
-          <div class="meta-item"><label>Assignee</label><p>${a?a.name:'Unassigned'}</p></div>
+          <div class="meta-item">
+            <label>Assignee ${r==='manager'||r==='scrum_master'?`<span onclick="document.getElementById('dwe-dev').style.display=document.getElementById('dwe-dev').style.display==='none'?'block':'none'" style="cursor:pointer;color:var(--blue);font-size:10px;">✏️</span>`:''}  </label>
+            <p>${a?a.name:'Unassigned'}</p>
+            ${r==='manager'||r==='scrum_master'?`<div id="dwe-dev" style="display:none;margin-top:4px;"><select onchange="drawerQuickSave('${t.id}','assignee_id',this.value)" style="width:100%;font-size:12px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}" ${t.assignee_id===d.id?'selected':''}>${d.name}</option>`).join('')}</select></div>`:''}
+          </div>
           <div class="meta-item"><label>Module</label><p>${t.module||'—'}</p></div>
-          <div class="meta-item"><label>Medium</label><p>${t.medium||'—'}</p></div>
+          <div class="meta-item">
+            <label>Medium ${r==='manager'||r==='scrum_master'?`<span onclick="document.getElementById('dwe-med').style.display=document.getElementById('dwe-med').style.display==='none'?'flex':'none'" style="cursor:pointer;color:var(--blue);font-size:10px;">✏️</span>`:''}  </label>
+            <p>${t.medium||'—'}</p>
+            ${r==='manager'||r==='scrum_master'?`<div id="dwe-med" style="display:none;margin-top:4px;gap:4px;"><input id="dwe-med-i" value="${t.medium||''}" placeholder="Desktop+Msite" style="flex:1;font-size:12px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;"/><button onclick="drawerQuickSave('${t.id}','medium',document.getElementById('dwe-med-i').value)" style="padding:4px 8px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Save</button></div>`:''}
+          </div>
           <div class="meta-item"><label>Created By</label><p>${cb?cb.name:'—'}</p></div>
-          ${t.ticket_id?`<div class="meta-item"><label>Ticket</label><p>${renderTicket(t.ticket_id)}</p></div>`:''}
+          <div class="meta-item" style="grid-column:1/-1">
+            <label>Ticket ${r==='manager'||r==='scrum_master'?`<span onclick="document.getElementById('dwe-tkt').style.display=document.getElementById('dwe-tkt').style.display==='none'?'block':'none'" style="cursor:pointer;color:var(--blue);font-size:10px;">✏️</span>`:''}  </label>
+            <div style="display:flex;align-items:center;gap:6px;">${renderTicket(t.ticket_id)}${!t.ticket_id?'<span style="color:var(--text2);font-size:12px;">No ticket</span>':''}</div>
+            ${r==='manager'||r==='scrum_master'?`<div id="dwe-tkt" style="display:none;margin-top:6px;">
+              <div style="display:flex;gap:6px;margin-bottom:6px;"><input id="dwe-tkt-id" value="${parseTicket(t.ticket_id).id}" placeholder="679001" style="flex:1;font-size:12px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;"/></div>
+              <div style="display:flex;gap:6px;"><input id="dwe-tkt-url" value="${parseTicket(t.ticket_id).url}" placeholder="https://project.intermesh.net/…" style="flex:1;font-size:12px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;"/><button onclick="(function(){const id=(document.getElementById('dwe-tkt-id').value||'').trim();const url=(document.getElementById('dwe-tkt-url').value||'').trim();drawerQuickSave('${t.id}','ticket_id',id&&url?id+'||'+url:id||url||null);})()" style="padding:4px 10px;background:var(--blue);color:#fff;border:none;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">Save</button></div>
+            </div>`:''}
+          </div>
           ${t.remark?`<div class="meta-item" style="grid-column:1/-1"><label>Remark</label><p>${t.remark}</p></div>`:''}
           <div class="meta-item">
             <label>Manager EDD</label>
@@ -1300,6 +1315,37 @@ function openDrawer(taskId){
         </div>
         ${t.description?`<div style="margin-top:12px;font-size:12px;color:var(--text2);line-height:1.6;">${t.description}</div>`:''}
         ${t.blocker_reason?`<div class="blocker-box">🚫 Blocker: ${t.blocker_reason}</div>`:''}
+      </div>
+      <div class="sep"></div>
+      <div class="dsec">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+          <div class="dsec-title" style="margin-bottom:0">Relations</div>
+          ${r==='manager'||r==='scrum_master'?`<button onclick="document.getElementById('dw-rel-form').style.display=document.getElementById('dw-rel-form').style.display==='none'?'block':'none'" class="btn btn-secondary btn-sm">+ Add</button>`:''}
+        </div>
+        ${(()=>{const rels=parseRelTickets(t.related_tickets);return rels.length?rels.map((rv,ri)=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);">
+          <span style="font-size:11px;color:var(--text2);min-width:90px;">${REL_LABELS[rv.rel]||rv.rel}</span>
+          ${rv.url?`<a href="${rv.url}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:3px;"><span style="font-family:monospace;font-size:11px;background:#f1f5f9;color:#1e40af;padding:2px 7px;border-radius:4px;font-weight:700;">${rv.id}</span><span style="font-size:10px;color:#3b82f6;">↗</span></a>`:`<span style="font-family:monospace;font-size:11px;background:#f1f5f9;color:#1e40af;padding:2px 7px;border-radius:4px;font-weight:700;">${rv.id}</span>`}
+          ${r==='manager'||r==='scrum_master'?`<button onclick="removeRelTicket('${t.id}',${ri})" style="margin-left:auto;background:none;border:none;color:#ef4444;cursor:pointer;font-size:12px;" title="Remove">✕</button>`:''}
+        </div>`).join('') : '<div style="font-size:12px;color:var(--text2);">No related tickets.</div>';})()}
+        ${r==='manager'||r==='scrum_master'?`<div id="dw-rel-form" style="display:none;margin-top:10px;padding:10px;background:#f8fafc;border-radius:8px;border:1px solid var(--border);">
+          <div style="margin-bottom:6px;"><label style="font-size:10px;font-weight:700;color:var(--text2);">RELATION TYPE</label>
+          <select id="dw-rel-type" style="width:100%;font-size:12px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;margin-top:3px;">
+            <option value="blocks">🔴 Blocks</option>
+            <option value="blocked_by">🔴 Blocked by</option>
+            <option value="relates">🔗 Relates to</option>
+            <option value="duplicate">📋 Duplicate of</option>
+            <option value="parent">⬆ Parent of</option>
+            <option value="child">⬇ Child of</option>
+          </select></div>
+          <div style="display:flex;gap:6px;margin-bottom:6px;">
+            <div style="flex:1"><label style="font-size:10px;font-weight:700;color:var(--text2);">TICKET ID</label><input id="dw-rel-id" placeholder="679001" style="width:100%;font-size:12px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;margin-top:3px;box-sizing:border-box;"/></div>
+          </div>
+          <div style="margin-bottom:8px;"><label style="font-size:10px;font-weight:700;color:var(--text2);">TICKET URL</label><input id="dw-rel-url" placeholder="https://project.intermesh.net/…" style="width:100%;font-size:12px;padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;margin-top:3px;box-sizing:border-box;"/></div>
+          <div style="display:flex;gap:6px;justify-content:flex-end;">
+            <button onclick="document.getElementById('dw-rel-form').style.display='none'" class="btn btn-secondary btn-sm">Cancel</button>
+            <button onclick="addRelTicket('${t.id}')" class="btn btn-primary btn-sm">Add Relation</button>
+          </div>
+        </div>`:''}
       </div>
       <div class="sep"></div>
       <div class="dsec">
@@ -1371,6 +1417,39 @@ function openDrawer(taskId){
   setTimeout(()=>document.getElementById('drawer').classList.add('open'),10);
 }
 
+function drawerQuickSave(taskId,field,val){
+  const upd={};upd[field]=val||null;
+  db.update(taskId,upd);
+  setTimeout(()=>openDrawer(taskId),300);
+  toast('✅ Updated');
+}
+function parseRelTickets(val){
+  if(!val)return[];
+  try{return JSON.parse(val);}catch(e){return[];}
+}
+const REL_LABELS={blocks:'🔴 Blocks',blocked_by:'🔴 Blocked by',relates:'🔗 Relates to',duplicate:'📋 Duplicate of',parent:'⬆ Parent of',child:'⬇ Child of'};
+function addRelTicket(taskId){
+  const relType=document.getElementById('dw-rel-type').value;
+  const relId=(document.getElementById('dw-rel-id').value||'').trim();
+  const relUrl=(document.getElementById('dw-rel-url').value||'').trim();
+  if(!relId&&!relUrl){toast('Enter a ticket ID or URL');return;}
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const existing=parseRelTickets(t.related_tickets);
+  // auto-extract ID from URL if ID empty
+  let finalId=relId;
+  if(!finalId&&relUrl){const m=relUrl.match(/\/work_packages\/(\d+)/)||relUrl.match(/\/browse\/([A-Z0-9]+-\d+)/)||relUrl.match(/\/issues\/(\d+)/);if(m)finalId=m[1];}
+  existing.push({rel:relType,id:finalId||'🔗',url:relUrl});
+  db.update(taskId,{related_tickets:JSON.stringify(existing)});
+  setTimeout(()=>openDrawer(taskId),300);
+  toast('✅ Relation added');
+}
+function removeRelTicket(taskId,idx){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const arr=parseRelTickets(t.related_tickets);
+  arr.splice(idx,1);
+  db.update(taskId,{related_tickets:arr.length?JSON.stringify(arr):null});
+  setTimeout(()=>openDrawer(taskId),300);
+}
 function deleteTask(id){
   if(!confirm('Delete this task? This cannot be undone.'))return;
   S.tasks=S.tasks.filter(t=>t.id!==id);
