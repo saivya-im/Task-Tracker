@@ -396,6 +396,16 @@ const SB={
   async upsertBugCount(data){
     const payload=Object.fromEntries(Object.entries(data).filter(([,v])=>v!=null&&v!==undefined));
     return fetch(this.url+'/rest/v1/bug_counts',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
+  },
+  async getAbsent(date){
+    try{const r=await fetch(this.url+'/rest/v1/daily_attendance?select=user_id&date=eq.'+date,{headers:this.hdrs});
+    if(!r.ok)return[];const d=await r.json();return d.map(x=>x.user_id);}catch(e){return[];}
+  },
+  async setAbsent(userId,date){
+    return fetch(this.url+'/rest/v1/daily_attendance',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:userId,date,is_absent:true})});
+  },
+  async clearAbsent(userId,date){
+    return fetch(this.url+'/rest/v1/daily_attendance?user_id=eq.'+userId+'&date=eq.'+date,{method:'DELETE',headers:this.hdrs});
   }
 };
 
@@ -667,6 +677,10 @@ async function initApp(){
   document.getElementById('sprint-label').textContent='Week '+weekNum(now)+' · '+now.toLocaleDateString('en-US',{month:'short',year:'numeric'});
   buildNav();
   await db.init();
+  // Load today's absent devs from Supabase
+  const todayStr=new Date().toISOString().slice(0,10);
+  const absentIds=await SB.getAbsent(todayStr);
+  S.absentDevs=new Set(absentIds);
   nav(u.role==='developer'?'my-tasks':'board');
   // Auto-refresh every 30s to sync team changes
   S.refreshTimer=setInterval(()=>db.refresh(),30000);
@@ -1634,9 +1648,14 @@ function closeModal(e){
 // ── STANDUP ───────────────────────────────────────────────
 let suDevs=[];
 function toggleAbsent(devId){
-  if(S.absentDevs.has(devId))S.absentDevs.delete(devId);
-  else S.absentDevs.add(devId);
-  const cur=S.suIdx;
+  const todayStr=new Date().toISOString().slice(0,10);
+  if(S.absentDevs.has(devId)){
+    S.absentDevs.delete(devId);
+    SB.clearAbsent(devId,todayStr);
+  } else {
+    S.absentDevs.add(devId);
+    SB.setAbsent(devId,todayStr);
+  }
   renderSU();
 }
 function startStandup(){
