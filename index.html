@@ -127,7 +127,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* BOARD */
 .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:12px;}
 .board-col{flex-shrink:0;width:235px;}.board-col.drag-over{background:rgba(59,130,246,.06);border-radius:10px;outline:2px dashed #3b82f6;}
-.sp-board{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;padding:4px 0;height:calc(100vh - 160px);}
+.sp-board{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;padding:4px 0;height:calc(100vh - 160px);}
 .sp-col{background:#f8fafc;border-radius:12px;border:1.5px solid var(--border);display:flex;flex-direction:column;overflow:hidden;}
 .sp-col-hdr{padding:12px 14px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;display:flex;align-items:center;justify-content:space-between;}
 .sp-col-body{flex:1;overflow-y:auto;padding:10px;display:flex;flex-direction:column;gap:8px;}
@@ -1174,17 +1174,18 @@ function saveBugCount(devId,field,value){
 // ── SPRINT SUMMARY ────────────────────────────────────────
 // ── SPRINT PLANNER ────────────────────────────────────────
 const SP_COLS=[
-  {key:'sp_created',label:'Created',color:'#475569',bg:'#475569'},
-  {key:'sp_mgr_approved',label:'Approved by Manager',color:'#0369a1',bg:'#0369a1'},
-  {key:'sp_hod_approved',label:'Approved by HOD',color:'#7c3aed',bg:'#7c3aed'},
-  {key:'sp_assigned',label:'Assigned',color:'#16a34a',bg:'#16a34a'},
+  {key:'sp_created',label:'Pending HOD Approval',summaryLabel:'HOD Approval Pending',color:'#475569',bg:'#475569'},
+  {key:'sp_hod_approved',label:'Approved by HOD',summaryLabel:'To be Assigned',color:'#7c3aed',bg:'#7c3aed'},
+  {key:'sp_assigned',label:'Assigned',summaryLabel:'Assigned',color:'#16a34a',bg:'#16a34a'},
 ];
+function spStatusLabel(key){return SP_COLS.find(c=>c.key===key)?.summaryLabel||key;}
 const MGR_IDS=USERS.filter(u=>u.role==='manager').map(u=>u.id);
 
 function renderSprintPlanner(){
   const r=S.user.role;
   const act=document.getElementById('pg-actions');
-  act.innerHTML=r==='manager'?`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Ticket</button>`:'';
+  act.innerHTML=(r==='manager'?`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Ticket</button>`:'')
+    +`<button class="btn btn-secondary btn-sm" onclick="spSendSummary()">📨 Send Summary</button>`;
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
   const cols=SP_COLS.map(col=>{
     const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key);
@@ -1193,7 +1194,7 @@ function renderSprintPlanner(){
       return`<div class="sp-card" draggable="true"
         ondragstart="spDragStart(event,'${t.id}')"
         ondragend="this.classList.remove('dragging')"
-        onclick="openDrawer('${t.id}')">
+        onclick="spOpenTicket('${t.id}')">
         <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;margin-bottom:8px;">
           <div style="font-size:12px;font-weight:700;line-height:1.4;flex:1;">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>
           <span class="chip ch-${t.priority}" style="font-size:9px;flex-shrink:0;">${t.priority||'—'}</span>
@@ -1237,6 +1238,61 @@ function spDrop(e,spStatus){
   renderSprintPlanner();
   toast('Moved to: '+SP_COLS.find(c=>c.key===spStatus)?.label);
 }
+function spOpenTicket(taskId){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const cr=uid(t.created_by),a=uid(t.assignee_id);
+  const spStatus=t.sprint_status||'sp_created';
+  const col=SP_COLS.find(c=>c.key===spStatus)||SP_COLS[0];
+  const r=S.user.role;
+  document.getElementById('modal').style.cssText='width:500px;max-width:95vw;';
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-hdr">
+      <div>
+        <h3 style="font-size:15px;">${TYPE_ICON[t.type]||'📌'} ${t.title}</h3>
+        <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap;">
+          <span class="chip ch-${t.priority}" style="font-size:10px;">${t.priority||'—'}</span>
+          ${t.module?`<span style="font-size:10px;font-weight:700;background:#f1f5f9;color:#475569;padding:2px 8px;border-radius:10px;">📦 ${t.module}</span>`:''}
+        </div>
+      </div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div style="background:${col.bg}18;border:1.5px solid ${col.bg}40;border-radius:10px;padding:14px 16px;margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:${col.bg};margin-bottom:4px;">Current Status</div>
+      <div style="font-size:18px;font-weight:800;color:${col.bg};">${col.summaryLabel}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px;">
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Created By</div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          ${cr?`<div style="width:28px;height:28px;border-radius:50%;background:${cr.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;">${av(cr)}</div><span style="font-size:13px;font-weight:700;">${cr.name}</span>`:'<span style="color:var(--text2);">—</span>'}
+        </div>
+      </div>
+      <div>
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Assigned To</div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          ${a?`<div style="width:28px;height:28px;border-radius:50%;background:${a.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;">${av(a)}</div><span style="font-size:13px;font-weight:700;">${a.name}</span>`:'<span style="color:var(--text2);font-size:12px;">Not assigned yet</span>'}
+        </div>
+      </div>
+      ${t.edd?`<div>
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">EDD</div>
+        <div style="font-size:13px;font-weight:700;">${fdate(t.edd)}</div>
+      </div>`:''}
+      ${t.ticket_id?`<div>
+        <div style="font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px;">Ticket</div>
+        <div>${renderTicket(t.ticket_id)}</div>
+      </div>`:''}
+    </div>
+    ${t.description?`<div style="font-size:12px;color:var(--text2);line-height:1.6;margin-bottom:16px;padding:10px;background:#f8fafc;border-radius:8px;">${t.description}</div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      ${r==='scrum_master'||r==='manager'?`
+        <select onchange="db.update('${t.id}',{sprint_status:this.value});closeModal();renderSprintPlanner();" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
+          ${SP_COLS.map(c=>`<option value="${c.key}" ${spStatus===c.key?'selected':''}>${c.label}</option>`).join('')}
+        </select>
+        ${spStatus==='sp_assigned'?`<button class="btn btn-secondary btn-sm" onclick="closeModal();spAssignDev('${t.id}')">👤 ${a?'Reassign Dev':'+ Assign Dev'}</button>`:''}
+      `:''}
+    </div>`;
+  document.getElementById('moverlay').style.display='flex';
+}
 function spAssignDev(taskId){
   const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
   const cur=t.assignee_id||'';
@@ -1262,6 +1318,29 @@ function spSaveAssign(taskId){
   closeModal();
   renderSprintPlanner();
   toast('✅ Developer assigned');
+}
+function spSendSummary(){
+  const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
+  const dateStr=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+  let sections=[];
+  SP_COLS.forEach(col=>{
+    const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key);
+    if(!colTasks.length)return;
+    let lines=[`*${col.summaryLabel}* (${colTasks.length})`];
+    colTasks.forEach(t=>{
+      const cr=uid(t.created_by);
+      const a=uid(t.assignee_id);
+      const crTag=cr?`@${cr.name.split(' ')[0]}`:'?';
+      const devTag=a?` → 👤 ${a.name.split(' ')[0]}`:'';
+      const mod=t.module?` [${t.module}]`:'';
+      lines.push(`• ${t.title}${mod} — ${crTag}${devTag}`);
+    });
+    sections.push(lines.join('\n'));
+  });
+  const text=`🗂️ *Sprint Planner Update — ${dateStr}*\n\n${sections.join('\n\n')}`;
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
+    .then(r=>r.ok?toast('✅ Summary sent to Google Chat'):toast('❌ Webhook failed'))
+    .catch(()=>toast('❌ Network error'));
 }
 
 
