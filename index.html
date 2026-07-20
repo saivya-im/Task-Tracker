@@ -487,8 +487,12 @@ const db={
 
   update(id,changes){
     const idx=S.tasks.findIndex(t=>t.id===id);if(idx<0)return;
-    Object.assign(S.tasks[idx],changes,{updated_at:new Date().toISOString()});
-    SB.patch(id,S.tasks[idx]);
+    const ts=new Date().toISOString();
+    Object.assign(S.tasks[idx],changes,{updated_at:ts});
+    const payload={...changes,updated_at:ts};
+    SB.patch(id,payload).then(async r=>{
+      if(!r.ok){const err=await r.text();console.error('Supabase PATCH failed:',r.status,err);}
+    }).catch(e=>console.error('Supabase PATCH error:',e));
     return S.tasks[idx];
   },
 
