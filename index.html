@@ -1213,7 +1213,7 @@ function renderSprintPlanner(){
             ${cr?`<div style="width:20px;height:20px;border-radius:50%;background:${cr.color};display:flex;align-items:center;justify-content:center;font-size:8px;font-weight:800;color:#fff;" title="Created by ${cr.name}">${av(cr)}</div>`:''}
             <span style="font-size:10px;color:var(--text2);">by ${cr?cr.name.split(' ')[0]:'?'}</span>
           </div>
-          ${(col.key==='sp_hod_approved'&&r==='scrum_master')||(col.key==='sp_assigned'&&(r==='scrum_master'||r==='manager'))?`
+          ${col.key==='sp_hod_approved'&&r==='scrum_master'?`
             <button onclick="event.stopPropagation();spAssignDev('${t.id}')" style="padding:3px 8px;background:#eff6ff;color:#2563eb;border:1px solid #bfdbfe;border-radius:6px;font-size:10px;font-weight:700;cursor:pointer;">
               ${a?`👤 ${a.name.split(' ')[0]}`:'+ Assign Dev'}
             </button>`:(a?`<div style="display:flex;align-items:center;gap:4px;"><div style="width:18px;height:18px;border-radius:50%;background:${a.color};display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:800;color:#fff;">${av(a)}</div><span style="font-size:10px;color:var(--text2);">${a.name.split(' ')[0]}</span></div>`:'')}
@@ -1296,7 +1296,7 @@ function spOpenTicket(taskId){
         <select onchange="db.update('${t.id}',{sprint_status:this.value});closeModal();renderSprintPlanner();" style="padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">
           ${SP_COLS.map(c=>`<option value="${c.key}" ${spStatus===c.key?'selected':''}>${c.label}</option>`).join('')}
         </select>
-        ${(spStatus==='sp_assigned'||(spStatus==='sp_hod_approved'&&r==='scrum_master'))?`<button class="btn btn-secondary btn-sm" onclick="closeModal();spAssignDev('${t.id}')">👤 ${a?'Reassign Dev':'+ Assign Dev'}</button>`:''}
+        ${spStatus==='sp_hod_approved'&&r==='scrum_master'?`<button class="btn btn-secondary btn-sm" onclick="closeModal();spAssignDev('${t.id}')">👤 ${a?'Reassign Dev':'+ Assign Dev'}</button>`:''}
       `:''}
     </div>`;
   document.getElementById('moverlay').style.display='flex';
@@ -1333,47 +1333,17 @@ function spSaveAssign(taskId){
 }
 function spSendSummary(){
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
-  const hodMention=`<users/${HOD_GCHAT_ID}>`;
-  let parts=[];
-
-  // ── HOD Approval Pending section ──
+  const hodMention='<users/'+HOD_GCHAT_ID+'>';
   const pendingTasks=tasks.filter(t=>(t.sprint_status||'sp_created')==='sp_created'&&!t.assignee_id);
-  if(pendingTasks.length){
-    const ticketLines=pendingTasks.map(t=>{
-      const tk=parseTicket(t.ticket_id);
-      return tk.url?`• <${tk.url}|${tk.id||t.title}>`:` • ${t.title}`;
-    }).join('\n');
-    parts.push(`${hodMention} HOD approval pending for below tickets :\n${ticketLines}`);
-  }
-
-  // ── HOD Approved / To be Assigned section ──
-  const hodApproved=tasks.filter(t=>t.sprint_status==='sp_hod_approved');
-  if(hodApproved.length){
-    const lines=hodApproved.map(t=>{
-      const tk=parseTicket(t.ticket_id);
-      const ref=tk.url?`<${tk.url}|${tk.id||t.title}>`:t.title;
-      return `• ${ref}`;
-    }).join('\n');
-    parts.push(`*To be Assigned* (${hodApproved.length})\n${lines}`);
-  }
-
-  // ── Assigned section ──
-  const assigned=tasks.filter(t=>t.sprint_status==='sp_assigned');
-  if(assigned.length){
-    const lines=assigned.map(t=>{
-      const tk=parseTicket(t.ticket_id);
-      const ref=tk.url?`<${tk.url}|${tk.id||t.title}>`:t.title;
-      const a=uid(t.assignee_id);
-      return `• ${ref}${a?' → 👤 '+a.name.split(' ')[0]:''}`;
-    }).join('\n');
-    parts.push(`*Assigned* (${assigned.length})\n${lines}`);
-  }
-
-  if(!parts.length){toast('No tickets to send');return;}
-  const text=parts.join('\n\n');
+  if(!pendingTasks.length){toast('No unassigned tickets pending HOD approval');return;}
+  const ticketLines=pendingTasks.map(t=>{
+    const tk=parseTicket(t.ticket_id);
+    return tk.url?'\u2022 <'+tk.url+'|'+(tk.id||t.title)+'>':'\u2022 '+t.title;
+  }).join('\n');
+  const text=hodMention+' HOD approval pending for below tickets :\n'+ticketLines;
   fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
-    .then(r=>r.ok?toast('✅ Summary sent to Google Chat'):toast('❌ Webhook failed'))
-    .catch(()=>toast('❌ Network error'));
+    .then(r=>r.ok?toast('\u2705 Summary sent to Google Chat'):toast('\u274C Webhook failed'))
+    .catch(()=>toast('\u274C Network error'));
 }
 
 
@@ -1508,9 +1478,9 @@ function openDrawer(taskId){
         <div class="dsec-title">Details</div>
         <div class="meta-grid">
           <div class="meta-item">
-            <label>Assignee ${r==='manager'||r==='scrum_master'?`<span onclick="document.getElementById('dwe-dev').style.display=document.getElementById('dwe-dev').style.display==='none'?'block':'none'" style="cursor:pointer;color:var(--blue);font-size:10px;">✏️</span>`:''}  </label>
+            <label>Assignee ${r==='scrum_master'?`<span onclick="document.getElementById('dwe-dev').style.display=document.getElementById('dwe-dev').style.display==='none'?'block':'none'" style="cursor:pointer;color:var(--blue);font-size:10px;">✏️</span>`:''}  </label>
             <p>${a?a.name:'Unassigned'}</p>
-            ${r==='manager'||r==='scrum_master'?`<div id="dwe-dev" style="display:none;margin-top:4px;"><select onchange="drawerQuickSave('${t.id}','assignee_id',this.value)" style="width:100%;font-size:12px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}" ${t.assignee_id===d.id?'selected':''}>${d.name}</option>`).join('')}</select></div>`:''}
+            ${r==='scrum_master'?`<div id="dwe-dev" style="display:none;margin-top:4px;"><select onchange="drawerQuickSave('${t.id}','assignee_id',this.value)" style="width:100%;font-size:12px;padding:4px 6px;border:1.5px solid var(--border);border-radius:6px;"><option value="">Unassigned</option>${devs().map(d=>`<option value="${d.id}" ${t.assignee_id===d.id?'selected':''}>${d.name}</option>`).join('')}</select></div>`:''}
           </div>
           <div class="meta-item"><label>Module</label><p>${t.module||'—'}</p></div>
           <div class="meta-item">
@@ -2155,7 +2125,7 @@ function suSaveEdit(taskId){
     type:document.getElementById('se-type').value,
     status:document.getElementById('se-status').value,
     priority:document.getElementById('se-pri').value,
-    assignee_id:document.getElementById('se-dev').value,
+    assignee_id:S.user.role==='manager'?undefined:document.getElementById('se-dev').value||null,
     module:document.getElementById('se-mod').value,
     medium:document.getElementById('se-med').value||null,
     edd:document.getElementById('se-edd-m').value||null,
