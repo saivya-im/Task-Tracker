@@ -1188,7 +1188,7 @@ function renderSprintPlanner(){
     +`<button class="btn btn-secondary btn-sm" onclick="spSendSummary()">📨 Send Summary</button>`;
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
   const cols=SP_COLS.map(col=>{
-    const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key);
+    const colTasks=tasks.filter(t=>(t.sprint_status||'sp_created')===col.key&&(col.key!=='sp_created'||!t.assignee_id));
     const cards=colTasks.map(t=>{
       const cr=uid(t.created_by),a=uid(t.assignee_id);
       return`<div class="sp-card" draggable="true"
