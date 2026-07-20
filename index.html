@@ -436,7 +436,7 @@ const USERS=[
   {id:'u13',role:'developer',name:'Sanket Dawar',color:'#0369a1'},
   {id:'u14',role:'developer',name:'Subodh Kumar Pandey',color:'#be185d'},
 ];
-const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports','KYS','Login','Seller Feed','VMS','Misc'];
+const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Payment Protection','BuyerTools','Reports','KYS','Login','Seller Feed','VMS','BMC','BuyerMY','Misc'];
 const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
 
 // ── STATE ─────────────────────────────────────────────────
@@ -579,6 +579,8 @@ async function doLogin(){
   loginSetLoading(false);
   const u=USERS.find(u=>u.id===userId);
   S.user=u;
+  sessionStorage.setItem('scrumUserId', userId);
+  sessionStorage.setItem('scrumUserId', userId);
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
@@ -663,6 +665,7 @@ async function doChangePassword(userId){
 }
 function logout(){
   clearInterval(S.refreshTimer);
+  sessionStorage.removeItem('scrumUserId');
   S.user=null;S.tasks=[];
   document.getElementById('app').style.display='none';
   document.getElementById('login-page').style.display='flex';
@@ -2413,7 +2416,21 @@ function toast(msg){
 }
 
 // ── BOOT ──────────────────────────────────────────────────
-(function(){populateLoginDropdown();document.getElementById('l-user').focus();})();
+(function(){
+  populateLoginDropdown();
+  const savedId = sessionStorage.getItem('scrumUserId');
+  if(savedId){
+    const u = USERS.find(u=>u.id===savedId);
+    if(u){
+      S.user=u;
+      document.getElementById('login-page').style.display='none';
+      document.getElementById('app').style.display='flex';
+      initApp();
+      return;
+    }
+  }
+  document.getElementById('l-user').focus();
+})();
 </script>
 </body>
 </html>
