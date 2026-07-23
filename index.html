@@ -1851,9 +1851,10 @@ function renderStandup(){
     <button class="btn btn-secondary btn-sm" onclick="showTaskModal()">+ Task</button>
     <button onclick="closeStandup()" style="padding:5px 12px;background:#fee2e2;color:#b91c1c;border:1.5px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✕ End Standup</button>`;
 
-  // Sidebar standup panel
+  // Sidebar standup panel — hide nav, show panel
+  document.getElementById('snav').style.display='none';
   const suPanel=document.getElementById('su-panel');
-  suPanel.style.display='block';
+  suPanel.style.cssText='display:block;padding:14px 16px;border-top:1px solid var(--border);flex:1;overflow-y:auto;';
   suPanel.innerHTML=`
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
       <div class="su-av" style="background:${dev.color};opacity:${isAbsent?.5:1}">${av(dev)}</div>
@@ -1910,6 +1911,7 @@ function suPrev(){if(S.suIdx<=0)return;S.suIdx--;renderStandup();}
 function closeStandup(){
   S.standupMode=false;
   document.getElementById('su-panel').style.display='none';
+  document.getElementById('snav').style.display='';
   nav(S.view||'board');
 }
 
