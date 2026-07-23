@@ -244,33 +244,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .form-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:18px;}
 .sep{height:1px;background:var(--border);margin:16px 0;}
 
-/* STANDUP */
-#standup{display:none;position:fixed;inset:0;background:#0f172a;z-index:1000;flex-direction:column;}
-.su-hdr{display:flex;align-items:center;justify-content:space-between;padding:18px 30px;border-bottom:1px solid rgba(255,255,255,.08);}
-.su-hdr h2{color:#fff;font-size:18px;font-weight:800;}
-.su-hdr p{color:rgba(255,255,255,.4);font-size:12px;margin-top:2px;}
-.su-dots{display:flex;gap:5px;align-items:center;}
-.su-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.18);}
-.su-dot.done{background:var(--done);}
-.su-dot.cur{background:var(--blue);transform:scale(1.5);}
-.su-body{flex:1;display:flex;overflow:hidden;}
-.su-side{width:240px;background:rgba(255,255,255,.04);padding:22px;border-right:1px solid rgba(255,255,255,.07);flex-shrink:0;}
-.su-av{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:800;color:#fff;margin-bottom:10px;}
-.su-name{color:#fff;font-size:18px;font-weight:800;}
-.su-role{color:rgba(255,255,255,.4);font-size:12px;}
-.su-summary{margin-top:18px;}
-.su-summary p{color:rgba(255,255,255,.65);font-size:12px;margin-bottom:5px;}
-.su-tasks{flex:1;padding:22px;overflow-y:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-content:start;}
-.su-sec h4{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px;}
-.su-sec.y h4{color:#22c55e;}
-.su-sec.t h4{color:#3b82f6;}
-.su-sec.b h4{color:#ef4444;}
-.su-task{background:rgba(255,255,255,.06);border-radius:8px;padding:9px 11px;margin-bottom:7px;}
-.su-task p{color:rgba(255,255,255,.85);font-size:12px;font-weight:600;}
-.su-task small{color:rgba(255,255,255,.35);font-size:10px;display:block;margin-top:2px;}
-.su-task.bl{border-left:3px solid var(--blocked);}
-.su-ftr{padding:16px 30px;border-top:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;}
-.su-ftr-info{color:rgba(255,255,255,.4);font-size:12px;}
+/* STANDUP PANEL (sidebar) */
+.su-av{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:800;color:#fff;flex-shrink:0;}
+#su-panel .su-bug-input{width:52px;background:var(--bg);border:1.5px solid var(--border);border-radius:6px;padding:3px 6px;color:var(--text);font-size:12px;font-weight:800;text-align:center;outline:none;}
 
 /* SUMMARY */
 .summ-box{background:#f8fafc;border-radius:10px;padding:14px;font-size:12px;line-height:1.75;color:var(--text);white-space:pre-wrap;font-family:monospace;max-height:420px;overflow-y:auto;border:1px solid var(--border);}
@@ -321,6 +297,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="sidebar">
     <div class="sidebar-logo"><h2>🏃 ScrumBoard</h2><p id="sprint-label"></p></div>
     <nav class="sidebar-nav" id="snav"></nav>
+    <div id="su-panel" style="display:none;padding:14px 16px;border-top:1px solid var(--border);flex-shrink:0;overflow-y:auto;max-height:360px;"></div>
     <div class="sidebar-user">
       <div class="user-info">
         <div class="uav" id="s-av"></div>
@@ -335,29 +312,6 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <div class="top-bar-actions" id="pg-actions"></div>
     </div>
     <div class="content" id="content"></div>
-  </div>
-</div>
-
-<!-- STANDUP -->
-<div id="standup">
-  <div class="su-hdr">
-    <div><h2 id="su-title">Daily Standup</h2><p id="su-date"></p></div>
-    <div style="display:flex;align-items:center;gap:14px;">
-      <div class="su-dots" id="su-dots"></div>
-      <button class="btn btn-secondary btn-sm" onclick="closeStandup()">✕ End</button>
-    </div>
-  </div>
-  <div class="su-body">
-    <div class="su-side" id="su-side"></div>
-    <div class="su-tasks" id="su-tasks"></div>
-  </div>
-  <div class="su-ftr">
-    <div class="su-ftr-info" id="su-info"></div>
-    <div style="display:flex;gap:8px;">
-      <button class="btn btn-secondary btn-sm" onclick="suPrev()">← Prev</button>
-      <button onclick="suNewTask()" style="padding:5px 13px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);border-radius:8px;color:#fff;font-size:11px;font-weight:700;cursor:pointer;">+ New Task</button>
-      <button class="btn btn-primary btn-sm" id="su-next" onclick="suNext()">Next →</button>
-    </div>
   </div>
 </div>
 
@@ -431,7 +385,7 @@ const USERS=[
   {id:'u8',role:'developer',name:'Aanchal Sharma',color:'#dc2626'},
   {id:'u9',role:'developer',name:'Aayushi Dangwal',color:'#d97706'},
   {id:'u10',role:'developer',name:'Anjali Rana',color:'#16a34a'},
-  {id:'u11',role:'developer',name:'Gurtej Singh Hud',color:'#9333ea'},
+  {id:'u18',role:'developer',name:'Harsh Gupta',color:'#ea580c'},
   {id:'u13',role:'developer',name:'Sanket Dawar',color:'#0369a1'},
   {id:'u14',role:'developer',name:'Subodh Kumar Pandey',color:'#be185d'},
 ];
@@ -439,7 +393,7 @@ const MODULES=['Curated Seller','UI/UX','RFQ','Optimisation','TrustSeal','Paymen
 const MEDIUMS=['Desktop','Msite','Desktop+Msite'];
 
 // ── STATE ─────────────────────────────────────────────────
-const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],bugCounts:{},refreshTimer:null,filters:{s:'',d:'',t:'',p:'',m:'',med:'',o:'',cb:''},absentDevs:new Set()};
+const S={user:null,view:'board',suIdx:0,openTask:null,tasks:[],bugCounts:{},refreshTimer:null,filters:{s:'',d:'',t:'',p:'',m:'',med:'',o:'',cb:''},absentDevs:new Set(),standupMode:false};
 
 // ── DB (Supabase-backed, in-memory cache) ─────────────────
 const db={
@@ -772,6 +726,9 @@ function renderBoard(){
 }
 
 function gf(){
+  if(S.standupMode&&suDevs[S.suIdx]){
+    return{s:'',d:suDevs[S.suIdx].id,t:'',p:'',m:'',med:'',o:'',cb:''};
+  }
   const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
   const f={s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo'),cb:g('fcb')};
   Object.assign(S.filters,f);
@@ -1859,102 +1816,102 @@ function closeModal(e){
 
 // ── STANDUP ───────────────────────────────────────────────
 let suDevs=[];
-function toggleAbsent(devId){
-  const todayStr=new Date().toISOString().slice(0,10);
-  if(S.absentDevs.has(devId)){
-    S.absentDevs.delete(devId);
-    SB.clearAbsent(devId,todayStr);
-  } else {
-    S.absentDevs.add(devId);
-    SB.setAbsent(devId,todayStr);
-  }
-  renderSU();
-}
+
 function startStandup(){
-  suDevs=devs();S.suIdx=0;
-  document.getElementById('su-date').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
-  document.getElementById('standup').style.display='flex';
-  renderSU();
+  suDevs=devs().filter(d=>!S.absentDevs.has(d.id));
+  // Put absent devs at the end
+  const absentList=devs().filter(d=>S.absentDevs.has(d.id));
+  suDevs=[...suDevs,...absentList];
+  S.suIdx=0;
+  S.standupMode=true;
+  renderStandup();
 }
-function renderSU(){
+
+function renderStandup(){
   const dev=suDevs[S.suIdx];
+  if(!dev){closeStandup();return;}
+  const isAbsent=S.absentDevs.has(dev.id);
   const tasks=db.tasks().filter(t=>t.assignee_id===dev.id);
-  const done=tasks.filter(t=>t.status==='done');
-  const active=tasks.filter(t=>t.status==='in_progress'||t.status==='todo');
-  const blk=tasks.filter(t=>t.status==='blocked');
-  document.getElementById('su-title').textContent='Standup — '+dev.name.split(' ')[0];
-  document.getElementById('su-info').textContent=(S.suIdx+1)+' of '+suDevs.length;
-  document.getElementById('su-next').textContent=S.suIdx===suDevs.length-1?'✓ Finish':'Next →';
-  document.getElementById('su-dots').innerHTML=suDevs.map((_,i)=>`<div class="su-dot ${i<S.suIdx?'done':i===S.suIdx?'cur':''}"></div>`).join('');
+  const doneCount=tasks.filter(t=>t.status==='done').length;
+  const activeCount=tasks.filter(t=>['todo','in_progress','review','discussion','dependant'].includes(t.status)).length;
+  const blkCount=tasks.filter(t=>t.status==='blocked').length;
   const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
   const suRem=Math.max(0,(bc.total||0)-(bc.resolved||0));
-  const isAbsent=S.absentDevs.has(dev.id);
-  document.getElementById('su-side').innerHTML=`
-    <div class="su-av" style="background:${dev.color};opacity:${isAbsent?'.4':'1'}">${av(dev)}</div>
-    <div class="su-name">${dev.name}${isAbsent?' <span style="font-size:10px;background:rgba(239,68,68,.2);color:#f87171;border-radius:4px;padding:1px 6px;margin-left:6px;">Absent</span>':''}</div>
-    <div class="su-role">Developer</div>
-    <button onclick="toggleAbsent('${dev.id}')" style="margin-top:8px;width:100%;padding:6px;background:${isAbsent?'rgba(239,68,68,.15)':'rgba(255,255,255,.07)'};border:1px solid ${isAbsent?'rgba(239,68,68,.3)':'rgba(255,255,255,.12)'};border-radius:7px;color:${isAbsent?'#f87171':'rgba(255,255,255,.55)'};font-size:11px;font-weight:700;cursor:pointer;">
+
+  // Update title & subtitle
+  document.getElementById('pg-title').textContent='🎯 Standup — '+dev.name;
+  document.getElementById('pg-sub').textContent=`Developer ${S.suIdx+1} of ${suDevs.length} · ${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})}`;
+
+  // Top bar actions
+  const dotsHtml=suDevs.map((_,i)=>`<div style="width:7px;height:7px;border-radius:50%;background:${i<S.suIdx?'var(--done)':i===S.suIdx?'var(--blue)':'var(--border)'};${i===S.suIdx?'transform:scale(1.4)':''}"></div>`).join('');
+  document.getElementById('pg-actions').innerHTML=`
+    <div style="display:flex;gap:3px;align-items:center;margin-right:8px;">${dotsHtml}</div>
+    <button class="btn btn-secondary btn-sm" onclick="suPrev()" ${S.suIdx===0?'disabled':''}>← Prev</button>
+    <button class="btn btn-primary btn-sm" onclick="suNext()">${S.suIdx===suDevs.length-1?'✓ Finish':'Next →'}</button>
+    <button class="btn btn-secondary btn-sm" onclick="showTaskModal()">+ Task</button>
+    <button onclick="closeStandup()" style="padding:5px 12px;background:#fee2e2;color:#b91c1c;border:1.5px solid #fecaca;border-radius:8px;font-size:12px;font-weight:700;cursor:pointer;">✕ End Standup</button>`;
+
+  // Sidebar standup panel
+  const suPanel=document.getElementById('su-panel');
+  suPanel.style.display='block';
+  suPanel.innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <div class="su-av" style="background:${dev.color};opacity:${isAbsent?.5:1}">${av(dev)}</div>
+      <div>
+        <div style="font-size:13px;font-weight:800;color:var(--text)">${dev.name.split(' ')[0]}</div>
+        <div style="font-size:10px;color:var(--text2)">${isAbsent?'<span style="color:#ef4444;font-weight:700;">● Absent</span>':'Developer'}</div>
+      </div>
+    </div>
+    <button onclick="toggleAbsent('${dev.id}')" style="width:100%;padding:5px 10px;background:${isAbsent?'#fee2e2':'var(--bg)'};border:1.5px solid ${isAbsent?'#fecaca':'var(--border)'};border-radius:7px;color:${isAbsent?'#b91c1c':'var(--text2)'};font-size:11px;font-weight:700;cursor:pointer;margin-bottom:12px;">
       ${isAbsent?'✓ Mark Present':'Mark Absent Today'}
     </button>
-    <div class="su-summary" style="margin-top:14px;">
-      <p>✅ Done: <strong style="color:#22c55e">${done.length}</strong></p>
-      <p>🔵 Active: <strong style="color:#3b82f6">${active.length}</strong></p>
-      <p>🚫 Blocked: <strong style="color:#ef4444">${blk.length}</strong></p>
+    <div style="display:flex;justify-content:space-between;margin-bottom:12px;background:var(--bg);border-radius:8px;padding:8px 10px;border:1px solid var(--border);">
+      <div style="text-align:center;"><div style="font-size:15px;font-weight:800;color:var(--done)">${doneCount}</div><div style="font-size:9px;color:var(--text2);font-weight:700;">DONE</div></div>
+      <div style="text-align:center;"><div style="font-size:15px;font-weight:800;color:var(--blue)">${activeCount}</div><div style="font-size:9px;color:var(--text2);font-weight:700;">ACTIVE</div></div>
+      <div style="text-align:center;"><div style="font-size:15px;font-weight:800;color:var(--blocked)">${blkCount}</div><div style="font-size:9px;color:var(--text2);font-weight:700;">BLOCKED</div></div>
     </div>
-    <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,.1);padding-top:14px;">
-      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:rgba(255,255,255,.4);margin-bottom:10px;">🐛 Bug Tracker</div>
-      <div style="display:flex;flex-direction:column;gap:9px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:11px;color:rgba(255,255,255,.6);">Open (Total)</span>
-          <input type="number" min="0" value="${bc.total||0}" id="su-tot-${dev.id}" onchange="saveBugCount('${dev.id}','total',this.value);suRefreshRem('${dev.id}')" style="width:58px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:6px;padding:4px 7px;color:#fff;font-size:13px;font-weight:800;text-align:center;outline:none;">
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:11px;color:rgba(255,255,255,.6);">Resolved</span>
-          <input type="number" min="0" value="${bc.resolved||0}" id="su-res-${dev.id}" onchange="saveBugCount('${dev.id}','resolved',this.value);suRefreshRem('${dev.id}')" style="width:58px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:6px;padding:4px 7px;color:#4ade80;font-size:13px;font-weight:800;text-align:center;outline:none;">
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;">
-          <span style="font-size:11px;color:rgba(255,255,255,.6);">Closed (QA)</span>
-          <input type="number" min="0" value="${bc.closed||0}" id="su-cls-${dev.id}" onchange="saveBugCount('${dev.id}','closed',this.value)" style="width:58px;background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.15);border-radius:6px;padding:4px 7px;color:#38bdf8;font-size:13px;font-weight:800;text-align:center;outline:none;">
-        </div>
-        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(239,68,68,.1);border-radius:7px;padding:7px 10px;margin-top:2px;">
-          <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,.7);">Remaining</span>
-          <span id="su-rem-${dev.id}" style="font-size:16px;font-weight:800;color:${suRem>0?'#f87171':'#4ade80'};">${suRem}</span>
-        </div>
+    <div style="font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;color:var(--text2);margin-bottom:8px;">🐛 Bug Tracker</div>
+    <div style="display:flex;flex-direction:column;gap:6px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:11px;color:var(--text2);">Open (Total)</span>
+        <input type="number" min="0" value="${bc.total||0}" id="su-tot-${dev.id}" onchange="saveBugCount('${dev.id}','total',this.value);suRefreshRem('${dev.id}')" class="su-bug-input">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:11px;color:var(--text2);">Resolved</span>
+        <input type="number" min="0" value="${bc.resolved||0}" id="su-res-${dev.id}" onchange="saveBugCount('${dev.id}','resolved',this.value);suRefreshRem('${dev.id}')" class="su-bug-input" style="color:var(--done);">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:11px;color:var(--text2);">Closed (QA)</span>
+        <input type="number" min="0" value="${bc.closed||0}" id="su-cls-${dev.id}" onchange="saveBugCount('${dev.id}','closed',this.value)" class="su-bug-input" style="color:#38bdf8;">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:${suRem>0?'#fef2f2':'#f0fdf4'};border-radius:7px;padding:6px 9px;margin-top:2px;">
+        <span style="font-size:11px;font-weight:700;color:var(--text);">Remaining</span>
+        <span id="su-rem-${dev.id}" style="font-size:14px;font-weight:800;color:${suRem>0?'#ef4444':'var(--done)'};">${suRem}</span>
       </div>
     </div>`;
 
-function suTaskCard(t,cls=''){
-    return`<div class="su-task ${cls}" style="position:relative;">
-      <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:6px;">
-        <div style="flex:1"><p>${TYPE_ICON[t.type]||'📌'} ${t.title}</p><small>${t.module?'📦 '+t.module+' · ':''}EDD: ${fdate(t.edd_sm||t.edd)}</small></div>
-        <button onclick="suEditTask('${t.id}')" style="background:rgba(255,255,255,.12);border:none;border-radius:5px;color:rgba(255,255,255,.7);font-size:10px;padding:3px 7px;cursor:pointer;flex-shrink:0;" title="Edit">✏️</button>
-      </div>
-    </div>`;
-  }
-  document.getElementById('su-tasks').innerHTML=`
-    <div class="su-sec y">
-      <h4>✅ Completed</h4>
-      ${done.length?done.map(t=>suTaskCard(t)).join(''):'<div class="su-task"><p style="color:rgba(255,255,255,.3)">Nothing done</p></div>'}
-    </div>
-    <div class="su-sec t">
-      <h4>🔵 Today\'s Plan</h4>
-      ${active.length?active.map(t=>suTaskCard(t)).join(''):'<div class="su-task"><p style="color:rgba(255,255,255,.3)">No active tasks</p></div>'}
-    </div>
-    <div class="su-sec b">
-      <h4>🚫 Blockers</h4>
-      ${blk.length?blk.map(t=>suTaskCard(t,'bl')).join(''):'<div class="su-task"><p style="color:rgba(255,255,255,.3)">No blockers 🎉</p></div>'}
-    </div>`;
+  // Render board filtered to this dev (no filter bar in standup mode)
+  const c=document.getElementById('content');
+  c.innerHTML='<div id="brd"></div>';
+  rbc();
 }
-function suNext(){if(S.suIdx>=suDevs.length-1){closeStandup();return;}S.suIdx++;renderSU();}
-function suPrev(){if(S.suIdx<=0)return;S.suIdx--;renderSU();}
+
 function suRefreshRem(devId){
   const tot=parseInt(document.getElementById('su-tot-'+devId)?.value||0);
   const res=parseInt(document.getElementById('su-res-'+devId)?.value||0);
   const rem=Math.max(0,tot-res);
   const el=document.getElementById('su-rem-'+devId);
-  if(el){el.textContent=rem;el.style.color=rem>0?'#f87171':'#4ade80';}
+  if(el){el.textContent=rem;el.style.color=rem>0?'#ef4444':'var(--done)';}
 }
-function closeStandup(){document.getElementById('standup').style.display='none';}
+
+function suNext(){if(S.suIdx>=suDevs.length-1){closeStandup();return;}S.suIdx++;renderStandup();}
+function suPrev(){if(S.suIdx<=0)return;S.suIdx--;renderStandup();}
+
+function closeStandup(){
+  S.standupMode=false;
+  document.getElementById('su-panel').style.display='none';
+  nav(S.view||'board');
+}
 
 function suNewTask(){
   const curDev=suDevs[S.suIdx];
@@ -2053,7 +2010,7 @@ function suSubmitNewTask(){
   });
   document.getElementById('su-new-overlay').remove();
   toast('✅ Task created');
-  renderSU();render();
+  if(S.standupMode)renderStandup();else render();
 }
 
 // ── STANDUP TASK EDIT ─────────────────────────────────────
@@ -2161,10 +2118,10 @@ function suSaveEdit(taskId){
     ticket_id:(()=>{const id=(document.getElementById('se-ticket').value||'').trim();const url=(document.getElementById('se-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),
     remark:document.getElementById('se-remark').value||null,
   });
-  document.getElementById('su-edit-overlay').remove();
+  document.getElementById('su-edit-overlay')?.remove();
   toast('✅ Task updated');
   render();
-  if(S.view==='standup') renderSU();
+  if(S.standupMode)renderStandup();
   if(S.openTask===taskId) openDrawer(taskId);
 }
 
