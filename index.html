@@ -1137,6 +1137,7 @@ function saveBugCount(devId,field,value){
 
 // ── SPRINT SUMMARY ────────────────────────────────────────
 // ── SPRINT PLANNER ────────────────────────────────────────
+const STANDUP_ORDER=['u9','u8','u10','u13','u7','u18','u5','u6','u14'];
 const SP_COLS=[
   {key:'sp_created',label:'Pending HOD Approval',summaryLabel:'HOD Approval Pending',color:'#475569',bg:'#475569'},
   {key:'sp_hod_approved',label:'Approved by HOD',summaryLabel:'To be Assigned',color:'#7c3aed',bg:'#7c3aed'},
@@ -1818,9 +1819,12 @@ function closeModal(e){
 let suDevs=[];
 
 function startStandup(){
-  suDevs=devs().filter(d=>!S.absentDevs.has(d.id));
-  // Put absent devs at the end
-  const absentList=devs().filter(d=>S.absentDevs.has(d.id));
+  const ordered=STANDUP_ORDER.map(id=>USERS.find(u=>u.id===id)).filter(Boolean);
+  // Also include any devs not in STANDUP_ORDER at the end
+  const extras=devs().filter(d=>!STANDUP_ORDER.includes(d.id));
+  const all=[...ordered,...extras];
+  suDevs=all.filter(d=>!S.absentDevs.has(d.id));
+  const absentList=all.filter(d=>S.absentDevs.has(d.id));
   suDevs=[...suDevs,...absentList];
   S.suIdx=0;
   S.standupMode=true;
