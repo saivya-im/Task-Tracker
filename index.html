@@ -752,7 +752,7 @@ function filtered(){
     if(f.o==='discussion'&&t.status!=='discussion')return false;
     if(f.o==='dropped'&&t.status!=='dropped')return false;
     if(f.cb&&t.created_by!==f.cb)return false;
-    if(['sp_created','sp_hod_approved'].includes(t.sprint_status))return false;
+    if(['sp_created','sp_hod_approved'].includes(t.sprint_status)&&!t.assignee_id)return false;
     return true;
   });
 }
