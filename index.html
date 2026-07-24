@@ -751,6 +751,7 @@ function filtered(){
     if(f.o==='discussion'&&t.status!=='discussion')return false;
     if(f.o==='dropped'&&t.status!=='dropped')return false;
     if(f.cb&&t.created_by!==f.cb)return false;
+    if(['sp_created','sp_hod_approved'].includes(t.sprint_status))return false;
     return true;
   });
 }
@@ -1139,13 +1140,12 @@ function saveBugCount(devId,field,value){
 // ── SPRINT PLANNER ────────────────────────────────────────
 const STANDUP_ORDER=['u9','u8','u10','u13','u7','u18','u5','u6','u14'];
 const SP_COLS=[
-  {key:'sp_created',label:'Pending HOD Approval',summaryLabel:'HOD Approval Pending',color:'#475569',bg:'#475569'},
-  {key:'sp_hod_approved',label:'Approved by HOD',summaryLabel:'To be Assigned',color:'#7c3aed',bg:'#7c3aed'},
-  {key:'sp_assigned',label:'Assigned',summaryLabel:'Assigned',color:'#16a34a',bg:'#16a34a'},
+  {key:'sp_created',label:'Approval Pending',summaryLabel:'Approval Pending',color:'#b45309',bg:'#b45309'},
+  {key:'sp_hod_approved',label:'Approved by HOD',summaryLabel:'Approved by HOD',color:'#7c3aed',bg:'#7c3aed'},
 ];
 function spStatusLabel(key){return SP_COLS.find(c=>c.key===key)?.summaryLabel||key;}
 const MGR_IDS=USERS.filter(u=>u.role==='manager').map(u=>u.id);
-const SP_LABELS={sp_created:'HOD Approval Pending',sp_hod_approved:'Approved by HOD',sp_assigned:'Assigned'};
+const SP_LABELS={sp_created:'Approval Pending',sp_hod_approved:'Approved by HOD',sp_assigned:'HOD Approved'};
 const HOD_GCHAT_ID='111419769130302668985'; // HOD Google Chat user ID for @mentions
 
 function renderSprintPlanner(){
@@ -1291,16 +1291,15 @@ function spSaveAssign(taskId){
   const devId=document.getElementById('sp-assign-dev').value;
   const t=db.tasks().find(x=>x.id===taskId);
   const updates={assignee_id:devId||null};
-  // Auto-advance from HOD Approved to Assigned when dev is set
   if(devId&&t&&t.sprint_status==='sp_hod_approved'){
     updates.sprint_status='sp_assigned';
-    // Move to 'todo' (To be Picked) on developer dashboard if not already active
-    if(['todo','done','dropped'].includes(t.status)||!t.status) updates.status='todo';
+    if(!t.status||t.status==='todo') updates.status='todo';
   }
+  if(!devId&&t&&t.sprint_status==='sp_assigned') updates.sprint_status='sp_hod_approved';
   db.update(taskId,updates);
   closeModal();
   renderSprintPlanner();
-  toast(devId?'✅ Developer assigned — ticket moved to To be Picked':'✅ Assignee cleared');
+  toast(devId?'✅ Dev assigned — ticket moved to task board':'✅ Assignee cleared');
 }
 function spSendSummary(){
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
@@ -1492,9 +1491,9 @@ function openDrawer(taskId){
               <button onclick="db.update('${t.id}',{sprint_status:null});openDrawer('${t.id}');toast('Removed from Sprint Planner');" style="padding:4px 8px;background:none;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text2);cursor:pointer;">Remove</button>
             </div>`:`
             <select onchange="(function(sel){const v=sel.value;db.update('${t.id}',{sprint_status:v||null});openDrawer('${t.id}');toast(v?'Sprint status updated':'Removed from Sprint Planner');})(this)" style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;background:#fff;color:${!t.sprint_status?'var(--text2)':t.sprint_status==='sp_created'?'#c2410c':'#16a34a'};">
-              <option value="" ${!t.sprint_status?'selected':''}>— Not in Sprint Planner</option>
-              <option value="sp_created" ${t.sprint_status==='sp_created'?'selected':''} style="color:#c2410c;">🗂️ HOD Approval Pending</option>
-              <option value="sp_hod_approved" ${t.sprint_status==='sp_hod_approved'?'selected':''} style="color:#16a34a;">✅ HOD Approved</option>
+              <option value="" ${!t.sprint_status||t.sprint_status==='sp_assigned'?'selected':''}>— On Task Board</option>
+              <option value="sp_created" ${t.sprint_status==='sp_created'?'selected':''} style="color:#b45309;">🗂️ Approval Pending</option>
+              <option value="sp_hod_approved" ${t.sprint_status==='sp_hod_approved'?'selected':''} style="color:#7c3aed;">✅ HOD Approved</option>
             </select>`}
         </div>`:''}
       </div>
@@ -1772,6 +1771,7 @@ function showTaskModal(){
       <div class="fg"><label>Remark</label><input type="text" id="m-remark" placeholder="Short note or dependency info"/></div>
     </div>
     <div class="fg"><label>Task Source</label><select id="m-src"><option value="sprint">Sprint (Monday planned)</option><option value="ad-hoc">Mid-week Ad-hoc</option></select></div>
+    ${S.user.role==="manager"?`<div class="fg"><label>Sprint Planner Status</label><select id="m-sprint-status"><option value="sp_created">🗂️ Approval Pending</option><option value="sp_hod_approved">✅ HOD Approved</option></select></div>`:""}
     <div class="sep"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <div style="font-size:12px;font-weight:800;">Subtasks</div>
@@ -1806,7 +1806,7 @@ function submitTask(){
     const t=row.querySelector('.str-t').value.trim();
     if(t)subtasks.push({id:'st'+Date.now()+Math.random(),title:t,assignee_id:row.querySelector('.str-a').value||document.getElementById('m-dev').value,edd:row.querySelector('.str-e').value||null,status:'todo'});
   });
-  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',sprint_status:S.user.role==='manager'?'sp_created':null,created_by:S.user.id,subtasks});
+  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',sprint_status:S.user.role==='manager'?(document.getElementById('m-sprint-status')?.value||'sp_created'):null,created_by:S.user.id,subtasks});
   closeModal();toast('✅ Task created');render();
 }
 
