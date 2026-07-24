@@ -1919,6 +1919,18 @@ function suRefreshRem(devId){
   if(el){el.textContent=rem;el.style.color=rem>0?'#ef4444':'var(--done)';}
 }
 
+function toggleAbsent(devId){
+  const todayStr=new Date().toISOString().slice(0,10);
+  if(S.absentDevs.has(devId)){
+    S.absentDevs.delete(devId);
+    SB.clearAbsent(devId,todayStr);
+  } else {
+    S.absentDevs.add(devId);
+    SB.setAbsent(devId,todayStr);
+  }
+  if(S.standupMode) renderStandup();
+  else render();
+}
 function suNext(){if(S.suIdx>=suDevs.length-1){closeStandup();return;}S.suIdx++;renderStandup();}
 function suPrev(){if(S.suIdx<=0)return;S.suIdx--;renderStandup();}
 
