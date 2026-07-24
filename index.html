@@ -683,6 +683,7 @@ function nav(view){
 }
 
 function render(){
+  if(S.standupMode){renderStandup();return;}
   const titles={board:'Board',workload:'Workload','my-tasks':'My Tasks',bugs:'Bug Summary',sprint:'Sprint Summary',table:'Table View',planner:'Sprint Planner'};
   document.getElementById('pg-title').textContent=titles[S.view]||'';
   document.getElementById('pg-sub').textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
