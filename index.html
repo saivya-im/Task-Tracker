@@ -1152,7 +1152,7 @@ const HOD_GCHAT_ID='111419769130302668985'; // HOD Google Chat user ID for @ment
 function renderSprintPlanner(){
   const r=S.user.role;
   const act=document.getElementById('pg-actions');
-  act.innerHTML=(r==='manager'?`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Ticket</button>`:'')
+  act.innerHTML=(r==='manager'||r==='scrum_master'?`<button class="btn btn-primary btn-sm" onclick="showTaskModal()">+ New Ticket</button>`:'')
     +`<button class="btn btn-secondary btn-sm" onclick="spSendSummary()">📨 Send Summary</button>`;
   const tasks=db.tasks().filter(t=>MGR_IDS.includes(t.created_by));
   const cols=SP_COLS.map(col=>{
@@ -1772,7 +1772,7 @@ function showTaskModal(){
       <div class="fg"><label>Remark</label><input type="text" id="m-remark" placeholder="Short note or dependency info"/></div>
     </div>
     <div class="fg"><label>Task Source</label><select id="m-src"><option value="sprint">Sprint (Monday planned)</option><option value="ad-hoc">Mid-week Ad-hoc</option></select></div>
-    ${S.user.role==="manager"?`<div class="fg"><label>Sprint Planner Status</label><select id="m-sprint-status"><option value="sp_created">🗂️ Approval Pending</option><option value="sp_hod_approved">✅ HOD Approved</option></select></div>`:""}
+    ${(S.user.role==="manager"||S.user.role==="scrum_master")?`<div class="fg"><label>Sprint Planner Status <span style="font-size:10px;font-weight:400;color:var(--text2)">(optional — leave blank for task board)</span></label><select id="m-sprint-status"><option value="">— Task Board (default) —</option><option value="sp_created">🗂️ Approval Pending</option><option value="sp_hod_approved">✅ HOD Approved</option></select></div>`:""}
     <div class="sep"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <div style="font-size:12px;font-weight:800;">Subtasks</div>
@@ -1807,8 +1807,10 @@ function submitTask(){
     const t=row.querySelector('.str-t').value.trim();
     if(t)subtasks.push({id:'st'+Date.now()+Math.random(),title:t,assignee_id:row.querySelector('.str-a').value||document.getElementById('m-dev').value,edd:row.querySelector('.str-e').value||null,status:'todo'});
   });
-  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',sprint_status:S.user.role==='manager'?(document.getElementById('m-sprint-status')?.value||'sp_created'):null,created_by:S.user.id,subtasks});
-  closeModal();toast('✅ Task created');render();
+  const spStatus=(S.user.role==='manager'||S.user.role==='scrum_master')?(document.getElementById('m-sprint-status')?.value||null):null;
+  db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',sprint_status:spStatus,created_by:S.user.id,subtasks});
+  const spMsg=spStatus==='sp_created'?' · Added to Sprint Planner (Approval Pending)':spStatus==='sp_hod_approved'?' · Added to Sprint Planner (HOD Approved)':'';
+  closeModal();toast('✅ Task created'+spMsg);render();
 }
 
 function closeModal(e){
