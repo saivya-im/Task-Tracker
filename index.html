@@ -838,7 +838,7 @@ function showDependencyModal(taskId,fromMgr){
     <div class="form-actions">
       <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
       <button type="button" class="btn btn-primary" onclick="saveDependency('${taskId}',${fromMgr?'true':'false'})">🔗 Mark Dependent</button>
-    </div>\`;
+    </div>`;
   document.getElementById('moverlay').style.display='flex';
 }
 function saveDependency(taskId,fromMgr){
@@ -865,7 +865,7 @@ function resolveDependency(taskId){
     <div class="form-actions">
       <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
       <button type="button" class="btn btn-primary" onclick="confirmResolve('${taskId}',${isMgrTask?'true':'false'})">✅ Resolve</button>
-    </div>\`;
+    </div>`;
   document.getElementById('moverlay').style.display='flex';
 }
 function confirmResolve(taskId,isMgrTask){
