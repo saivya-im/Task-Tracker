@@ -1092,7 +1092,10 @@ function showMgrTaskModal(){
       <div class="fg"><label>Module</label><select id="mm-mod"><option value="">— None —</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select></div>
       <div class="fg"><label>EDD</label><input type="date" id="mm-edd"/></div>
     </div>
-    <div class="fg"><label>Ticket ID</label><input type="text" id="mm-ticket" placeholder="e.g. WP-679001"/></div>
+    <div class="fr">
+      <div class="fg"><label>Ticket ID</label><input type="text" id="mm-ticket" placeholder="e.g. WP-679001"/></div>
+      <div class="fg"><label>Ticket Link (URL)</label><input type="url" id="mm-tlink" placeholder="https://project.intermesh.net/…" oninput="mgrAutoFillTicket()"/></div>
+    </div>
     <div class="fg"><label>Remark</label><input type="text" id="mm-remark" placeholder="Short note"/></div>
     <div class="form-actions">
       <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
@@ -1105,7 +1108,7 @@ function submitMgrTask(){
   if(!title){alert('Title is required');return;}
   const assigneeId=document.getElementById('mm-dev').value;
   if(!assigneeId){alert('Please select a manager assignee');return;}
-  db.createTask({title,description:document.getElementById('mm-desc').value,type:document.getElementById('mm-type').value,priority:document.getElementById('mm-pri').value,module:document.getElementById('mm-mod').value,assignee_id:assigneeId,edd:document.getElementById('mm-edd').value||null,ticket_id:document.getElementById('mm-ticket').value||null,remark:document.getElementById('mm-remark').value||null,status:document.getElementById('mm-status').value,sprint_status:null,created_by:S.user.id,subtasks:[]});
+  db.createTask({title,description:document.getElementById('mm-desc').value,type:document.getElementById('mm-type').value,priority:document.getElementById('mm-pri').value,module:document.getElementById('mm-mod').value,assignee_id:assigneeId,edd:document.getElementById('mm-edd').value||null,ticket_id:(()=>{const id=(document.getElementById('mm-ticket').value||'').trim();const url=(document.getElementById('mm-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('mm-remark').value||null,status:document.getElementById('mm-status').value,sprint_status:null,created_by:S.user.id,subtasks:[]});
   closeModal();toast('✅ Manager task created');renderMgrBoard();
 }
 
@@ -2321,6 +2324,14 @@ function suEditTask(taskId){
       </div>
     </div>`;
   document.body.appendChild(ol);
+}
+function mgrAutoFillTicket(){
+  const url=document.getElementById('mm-tlink').value.trim();
+  const idField=document.getElementById('mm-ticket');
+  if(!idField.value&&url){
+    const m=url.match(/\/work_packages\/(\d+)/)||url.match(/\/browse\/([A-Z0-9]+-\d+)/)||url.match(/\/issues\/(\d+)/);
+    if(m)idField.value=m[1];
+  }
 }
 function autoFillTicketId(){
   const url=document.getElementById('m-tlink').value.trim();
