@@ -100,6 +100,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .ch-on_leave{background:#fee2e2;color:#ef4444;}
 .ch-to_be_approved{background:#fef3c7;color:#b45309;}
 .ch-aligned{background:#d1fae5;color:#065f46;}
+.ch-hod_approved{background:#ede9fe;color:#6d28d9;}
 .ch-P1{background:#fee2e2;color:#dc2626;}
 .ch-P2{background:#fef3c7;color:#d97706;}
 .ch-P3{background:#f1f5f9;color:#64748b;}
@@ -473,7 +474,7 @@ function av(u){return u?u.name.split(' ').map(n=>n[0]).join('').slice(0,2):'?';}
 function fdate(d){if(!d)return'—';return new Date(d).toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
 function today(){return new Date().toISOString().split('T')[0];}
 function addDays(n){const d=new Date();d.setDate(d.getDate()+n);return d.toISOString().split('T')[0];}
-function slabel(s){return{todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped',on_leave:'On Leave',to_be_approved:'To be Approved',aligned:'Aligned'}[s]||s;}
+function slabel(s){return{todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped',on_leave:'On Leave',to_be_approved:'To be Approved',aligned:'Aligned',hod_approved:'Approved by HOD'}[s]||s;}
 function parseTicket(val){
   if(!val)return{id:'',url:''};
   if(val.includes('||')){const[id,url]=val.split('||',2);return{id:id.trim(),url:url.trim()};}
@@ -491,7 +492,7 @@ function renderTicket(val,small){
   if(url)return`<a href="${url}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center;gap:3px;">${badge}<span style="font-size:10px;color:#3b82f6;">↗</span></a>`;
   return badge;
 }
-function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',review:'ch-review',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped',on_leave:'ch-on_leave',to_be_approved:'ch-to_be_approved',aligned:'ch-aligned'}[s]||'ch-todo';}
+function schip(s){return{todo:'ch-todo',in_progress:'ch-in_progress',review:'ch-review',blocked:'ch-blocked',done:'ch-done',discussion:'ch-discussion',dependant:'ch-dependant',dropped:'ch-dropped',on_leave:'ch-on_leave',to_be_approved:'ch-to_be_approved',aligned:'ch-aligned',hod_approved:'ch-hod_approved'}[s]||'ch-todo';}
 function isBreached(t){const e=t.edd_sm||t.edd;if(!e||t.status==='done')return false;return new Date(e)<new Date(today());}
 function isAging(t){if(t.status!=='in_progress')return false;return(Date.now()-new Date(t.updated_at||t.created_at))/(864e5)>=3;}
 function progColor(p){return p>=80?'#22c55e':p>=40?'#3b82f6':'#f59e0b';}
@@ -941,8 +942,10 @@ const MGR_COLS=[
   {key:'todo',label:'TO DO',color:'#854d0e',bg:'#fef9c3'},
   {key:'in_progress',label:'IN PROGRESS',color:'#2563eb',bg:'#dbeafe'},
   {key:'to_be_approved',label:'TO BE APPROVED',color:'#b45309',bg:'#fef3c7'},
+  {key:'hod_approved',label:'APPROVED BY HOD',color:'#6d28d9',bg:'#ede9fe'},
   {key:'aligned',label:'ALIGNED',color:'#065f46',bg:'#d1fae5'},
 ];
+const SM_IDS=['u5','u6']; // Avinash, Saivya
 const _mgrF={mgr:'',status:''};
 function renderManagerBoard(){
   const r=S.user.role;
@@ -980,7 +983,10 @@ function renderMgrBoard(){
       const a=uid(t.assignee_id);
       const edd=t.edd_sm||t.edd;
       const br=isBreached(t);
-      return`<div class="tcard" draggable="true" ondragstart="_mgrDragId='${t.id}';event.dataTransfer.effectAllowed='move'" ondrop="event.preventDefault();mgrDrop('${col.key}')" onclick="openDrawer('${t.id}')" style="cursor:pointer;">
+      const canDrag=t.status!=='aligned';
+      const isHodApproved=t.status==='hod_approved';
+      const isSM=SM_IDS.includes(S.user.id);
+      return`<div class="tcard" draggable="${canDrag}" ondragstart="${canDrag?`_mgrDragId='${t.id}';event.dataTransfer.effectAllowed='move'`:'event.preventDefault()'}" onclick="openDrawer('${t.id}')" style="cursor:pointer;${t.status==='aligned'?'opacity:.85;':''}">
         <div class="tc-top">
           <div class="tc-title">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>
           <button class="info-btn" onclick="event.stopPropagation();openDrawer('${t.id}')">ⓘ</button>
@@ -996,6 +1002,8 @@ function renderMgrBoard(){
           </div>
           <span class="tc-edd ${br?'red':''}">${edd?(br?'⚠️ ':'')+fdate(edd):'—'}</span>
         </div>
+        ${isHodApproved&&isSM?`<div style="margin-top:8px;"><button type="button" onclick="event.stopPropagation();mgrAlignDev('${t.id}')" style="width:100%;padding:6px;background:#ede9fe;color:#6d28d9;border:1.5px solid #c4b5fd;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;">👤 Align to Developer</button></div>`:''}
+        ${isHodApproved&&!isSM?`<div style="margin-top:8px;font-size:10px;color:#7c3aed;font-weight:700;text-align:center;">⏳ Awaiting SM alignment</div>`:''}
       </div>`;
     }).join('');
     return`<div class="board-col" ondragover="event.preventDefault()" ondrop="event.preventDefault();mgrDrop('${col.key}')">
@@ -1011,10 +1019,60 @@ function renderMgrBoard(){
 let _mgrDragId=null;
 function mgrDrop(status){
   if(!_mgrDragId)return;
+  const task=db.tasks().find(t=>t.id===_mgrDragId);
+  // Cannot drag aligned tasks; cannot drag into hod_approved or aligned via drag (SM-only actions)
+  if(task?.status==='aligned'||status==='aligned'||(status==='hod_approved'&&!SM_IDS.includes(S.user.id))){
+    _mgrDragId=null;toast('⚠️ Not allowed');return;
+  }
   db.update(_mgrDragId,{status});
   _mgrDragId=null;
   renderMgrBoard();
   toast('Moved to '+MGR_COLS.find(c=>c.key===status)?.label);
+}
+function mgrAlignDev(taskId){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const devOpts=devs().map(d=>`<option value="${d.id}">${d.name}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-hdr"><h3>👤 Align to Developer</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="font-size:13px;font-weight:600;margin-bottom:14px;color:var(--text2);">${t.title}</div>
+    <div class="fg"><label>Select Developer</label>
+      <select id="mgr-align-dev" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <option value="">— Select Developer —</option>${devOpts}
+      </select>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="mgrConfirmAlign('${taskId}')">✅ Align</button>
+    </div>`;
+  document.getElementById('moverlay').style.display='flex';
+}
+function mgrConfirmAlign(taskId){
+  const devId=document.getElementById('mgr-align-dev').value;
+  if(!devId){alert('Select a developer');return;}
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const dev=USERS.find(u=>u.id===devId);
+  // 1. Move manager task to Aligned
+  db.update(taskId,{status:'aligned'});
+  // 2. Create new task on developer's board (To be Picked)
+  db.createTask({
+    title:t.title,
+    description:t.description||'',
+    type:t.type||'feature',
+    priority:t.priority||'P2',
+    module:t.module||'',
+    medium:t.medium||null,
+    assignee_id:devId,
+    edd:t.edd||null,
+    ticket_id:t.ticket_id||null,
+    remark:t.remark||null,
+    status:'todo',
+    sprint_status:null,
+    created_by:S.user.id,
+    subtasks:[]
+  });
+  closeModal();
+  toast('✅ Aligned to '+dev?.name.split(' ')[0]+' — task added to their board');
+  renderMgrBoard();
 }
 function showMgrTaskModal(){
   const mgrOpts=MGR_BOARD_IDS.map(id=>USERS.find(u=>u.id===id)).filter(Boolean).map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
@@ -1028,7 +1086,7 @@ function showMgrTaskModal(){
     </div>
     <div class="fr">
       <div class="fg"><label>Assignee (Manager) *</label><select id="mm-dev"><option value="">— Select —</option>${mgrOpts}</select></div>
-      <div class="fg"><label>Status</label><select id="mm-status"><option value="todo">TO DO</option><option value="in_progress">IN PROGRESS</option><option value="to_be_approved">TO BE APPROVED</option><option value="aligned">ALIGNED</option></select></div>
+      <div class="fg"><label>Status</label><select id="mm-status"><option value="todo">TO DO</option><option value="in_progress">IN PROGRESS</option><option value="to_be_approved">TO BE APPROVED</option><option value="hod_approved">APPROVED BY HOD</option><option value="aligned">ALIGNED</option></select></div>
     </div>
     <div class="fr">
       <div class="fg"><label>Module</label><select id="mm-mod"><option value="">— None —</option>${MODULES.map(m=>`<option value="${m}">${m}</option>`).join('')}</select></div>
