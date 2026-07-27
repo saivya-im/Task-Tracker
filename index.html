@@ -759,6 +759,17 @@ function filtered(){
 
 function rbc(){
   const el=document.getElementById('brd');if(!el)return;
+  // Show ON LEAVE warning in subtitle when filtered dev is absent
+  const subEl=document.getElementById('pg-sub');
+  if(subEl&&!S.standupMode){
+    const fd=document.getElementById('fd')?.value;
+    const filteredDev=fd&&fd!=='__unassigned__'?USERS.find(u=>u.id===fd):null;
+    if(filteredDev&&S.absentDevs.has(filteredDev.id)){
+      subEl.innerHTML=`${new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'})} &nbsp;<span style="background:#fee2e2;color:#b91c1c;font-size:11px;font-weight:800;padding:2px 9px;border-radius:20px;letter-spacing:.5px;">🏖 ON LEAVE TODAY</span>`;
+    } else {
+      subEl.textContent=new Date().toLocaleDateString('en-US',{weekday:'long',month:'long',day:'numeric',year:'numeric'});
+    }
+  }
   const tasks=filtered();
   const stats=['todo','in_progress','review','discussion','dependant','blocked','dropped','done'];
   const labels={todo:'To be Picked',in_progress:'WIP',review:'Review/Test',blocked:'Blocked',done:'Done',discussion:'Discussion',dependant:'Dependant',dropped:'Dropped'};
@@ -1776,7 +1787,7 @@ function showTaskModal(){
     <div class="sep"></div>
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
       <div style="font-size:12px;font-weight:800;">Subtasks</div>
-      <button class="btn btn-secondary btn-sm" onclick="addSTRow()">+ Add Subtask</button>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="addSTRow()">+ Add Subtask</button>
     </div>
     <div id="st-rows"></div>
     <div class="form-actions">
@@ -1794,7 +1805,7 @@ function addSTRow(){
     <div class="fg" style="margin:0"><label>Subtask</label><input type="text" class="str-t" placeholder="Title"/></div>
     <div class="fg" style="margin:0"><label>Assignee</label><select class="str-a"><option value="">Parent dev</option>${devs().map(x=>`<option value="${x.id}">${x.name.split(' ')[0]}</option>`).join('')}</select></div>
     <div class="fg" style="margin:0"><label>EDD</label><input type="date" class="str-e"/></div>
-    <button class="btn btn-secondary btn-sm" style="margin-bottom:1px" onclick="this.parentElement.remove()">✕</button>`;
+    <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:1px" onclick="this.parentElement.remove()">✕</button>`;
   c.appendChild(d);
 }
 
@@ -2237,18 +2248,8 @@ function renderSummaryTable(){
   devs().forEach(dev=>{
     if(!_SF.devs.has(dev.id))return;
     let dt=allTasks.filter(t=>t.assignee_id===dev.id&&_SF.statuses.has(t.status)&&_SF.priorities.has(t.priority)&&_SF.modules.has(t.module||''));
-    // Absent devs: collect separately to show at end
-    if(S.absentDevs.has(dev.id)){
-      if(_SF.statuses.has('on_leave')){
-        leaveRows+=`<tr><td colspan="9" style="padding:8px 12px;background:#fff8f8;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
-          <div style="display:flex;align-items:center;gap:8px;">
-            <div style="width:22px;height:22px;border-radius:50%;background:${dev.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;opacity:.5;">${av(dev)}</div>
-            <span style="opacity:.6">${dev.name}</span>
-            <span class="chip ch-on_leave" style="font-size:10px;">🏖 On Leave Today</span>
-          </div></td></tr>`;
-      }
-      return;
-    }
+    // Absent devs: skip from main rows
+    if(S.absentDevs.has(dev.id)){return;}
     if(!dt.length)return;
     rowCount+=dt.length;
     rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#f8fafc;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
@@ -2272,7 +2273,16 @@ function renderSummaryTable(){
       </tr>`;
     });
   });
-  rows+=leaveRows;
+  // Build single "On Leave Today" row
+  const absentVisible=devs().filter(d=>S.absentDevs.has(d.id)&&_SF.devs.has(d.id));
+  if(absentVisible.length&&_SF.statuses.has('on_leave')){
+    const names=absentVisible.map(d=>d.name.split(' ')[0]).join(', ');
+    rows+=`<tr><td colspan="9" style="padding:10px 14px;background:#fff8f8;border-bottom:1px solid #fecaca;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span class="chip ch-on_leave" style="font-size:11px;padding:3px 10px;flex-shrink:0;">🏖 On Leave Today</span>
+        <span style="font-size:12px;font-weight:700;color:#b91c1c;">${names}</span>
+      </div></td></tr>`;
+  }
   const tbl=`<table style="width:100%;border-collapse:collapse;background:#fff;">
     <thead style="position:sticky;top:0;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.1);"><tr><th style="${thS}">Date</th><th style="${thS}">Module${filterIcon('modules')}</th><th style="${thS}">Item</th><th style="${thS}">Assignee${filterIcon('devs')}</th><th style="${thS}">Status${filterIcon('statuses')}</th><th style="${thS}">EDD</th><th style="${thS}">Priority${filterIcon('priorities')}</th><th style="${thS}">Ticket ID</th><th style="${thS}">Remark</th></tr></thead>
     <tbody>${rows||'<tr><td colspan="9" style="padding:20px;text-align:center;color:#94a3b8;">No tasks match filters</td></tr>'}</tbody>
