@@ -1791,33 +1791,34 @@ function showTaskModal(){
     </div>
     <div id="st-rows"></div>
     <div class="form-actions">
-      <button class="btn btn-secondary" onclick="closeModal()">Cancel</button>
-      <button class="btn btn-primary" onclick="submitTask()">Create Task</button>
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="submitTask()">Create Task</button>
     </div>`;
   document.getElementById('moverlay').style.display='flex';
+  _stRows=[];renderSTRows();
 }
 
-function addSTRow(){
-  const c=document.getElementById('st-rows');
-  const d=document.createElement('div');
-  d.style.cssText='display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:flex-end;margin-bottom:8px;';
-  d.innerHTML=`
-    <div class="fg" style="margin:0"><label>Subtask</label><input type="text" class="str-t" placeholder="Title"/></div>
-    <div class="fg" style="margin:0"><label>Assignee</label><select class="str-a"><option value="">Parent dev</option>${devs().map(x=>`<option value="${x.id}">${x.name.split(' ')[0]}</option>`).join('')}</select></div>
-    <div class="fg" style="margin:0"><label>EDD</label><input type="date" class="str-e"/></div>
-    <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:1px" onclick="this.parentElement.remove()">✕</button>`;
-  c.appendChild(d);
+// Array-backed subtask rows — survives any innerHTML re-renders elsewhere
+let _stRows=[];
+function renderSTRows(){
+  const c=document.getElementById('st-rows');if(!c)return;
+  const devOpts=devs().map(x=>`<option value="${x.id}">${x.name.split(' ')[0]}</option>`).join('');
+  c.innerHTML=_stRows.map((r,i)=>`
+    <div style="display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:8px;align-items:flex-end;margin-bottom:8px;">
+      <div class="fg" style="margin:0"><label>Subtask</label><input type="text" placeholder="Title" value="${r.title||''}" oninput="_stRows[${i}].title=this.value"/></div>
+      <div class="fg" style="margin:0"><label>Assignee</label><select onchange="_stRows[${i}].assignee=this.value"><option value="">Parent dev</option>${devOpts}</select></div>
+      <div class="fg" style="margin:0"><label>EDD</label><input type="date" value="${r.edd||''}" onchange="_stRows[${i}].edd=this.value"/></div>
+      <button type="button" class="btn btn-secondary btn-sm" style="margin-bottom:1px" onclick="_stRows.splice(${i},1);renderSTRows()">✕</button>
+    </div>`).join('');
+  // Restore select values after re-render
+  _stRows.forEach((r,i)=>{const s=c.querySelectorAll('select')[i];if(s&&r.assignee)s.value=r.assignee;});
 }
+function addSTRow(){_stRows.push({title:'',assignee:'',edd:''});renderSTRows();}
 
 function submitTask(){
   const title=document.getElementById('m-title').value.trim();
   if(!title){alert('Title is required');return;}
-  const rows=document.querySelectorAll('#st-rows > div');
-  const subtasks=[];
-  rows.forEach(row=>{
-    const t=row.querySelector('.str-t').value.trim();
-    if(t)subtasks.push({id:'st'+Date.now()+Math.random(),title:t,assignee_id:row.querySelector('.str-a').value||document.getElementById('m-dev').value,edd:row.querySelector('.str-e').value||null,status:'todo'});
-  });
+  const subtasks=_stRows.filter(r=>r.title?.trim()).map(r=>({id:'st'+Date.now()+Math.random(),title:r.title.trim(),assignee_id:r.assignee||document.getElementById('m-dev').value,edd:r.edd||null,status:'todo'}));
   const spStatus=(S.user.role==='manager'||S.user.role==='scrum_master')?(document.getElementById('m-sprint-status')?.value||null):null;
   db.createTask({title,description:document.getElementById('m-desc').value,type:document.getElementById('m-type').value,priority:document.getElementById('m-pri').value,module:document.getElementById('m-mod').value,medium:document.getElementById('m-med').value||null,assignee_id:document.getElementById('m-dev').value,edd:document.getElementById('m-edd').value||null,sprint_src:document.getElementById('m-src').value,ticket_id:(()=>{const id=(document.getElementById('m-ticket').value||'').trim();const url=(document.getElementById('m-tlink').value||'').trim();return id&&url?id+'||'+url:id||url||null;})(),remark:document.getElementById('m-remark').value||null,status:'todo',sprint_status:spStatus,created_by:S.user.id,subtasks});
   const spMsg=spStatus==='sp_created'?' · Added to Sprint Planner (Approval Pending)':spStatus==='sp_hod_approved'?' · Added to Sprint Planner (HOD Approved)':'';
