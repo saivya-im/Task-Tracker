@@ -804,10 +804,76 @@ function dropOnCol(e,status){
   e.preventDefault();
   e.currentTarget.classList.remove('drag-over');
   if(!_dragId)return;
-  db.update(_dragId,{status});
-  _dragId=null;
+  const tid=_dragId;_dragId=null;
+  if(status==='dependant'){showDependencyModal(tid,false);return;}
+  db.update(tid,{status});
   render();
   toast('Status updated to '+slabel(status));
+}
+// ─── Dependency helpers ───────────────────────────────────
+function DEP_OPTIONS(){
+  return [
+    {val:'SA',label:'SA'},
+    {val:'API',label:'API Team'},
+    ...USERS.filter(u=>MGR_BOARD_IDS.includes(u.id)).map(u=>({val:u.id,label:u.name}))
+  ];
+}
+function depLabel(val){
+  if(!val)return '';
+  if(val==='SA')return 'SA';
+  if(val==='API')return 'API Team';
+  const u=USERS.find(x=>x.id===val);
+  return u?u.name:val;
+}
+function showDependencyModal(taskId,fromMgr){
+  const opts=DEP_OPTIONS().map(o=>`<option value="${o.val}">${o.label}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-hdr"><h3>🔗 Mark as Dependent</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Select what this task is dependent on:</div>
+    <div class="fg"><label>Dependent On</label>
+      <select id="dep-on" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <option value="">— Select —</option>${opts}
+      </select>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="saveDependency('${taskId}',${fromMgr?'true':'false'})">🔗 Mark Dependent</button>
+    </div>\`;
+  document.getElementById('moverlay').style.display='flex';
+}
+function saveDependency(taskId,fromMgr){
+  const val=document.getElementById('dep-on').value;
+  if(!val){alert('Select a dependency');return;}
+  db.update(taskId,{status:'dependant',blocker_reason:'__dep:'+val});
+  closeModal();
+  if(fromMgr)renderMgrBoard();else render();
+  toast('🔗 Marked as dependent on '+depLabel(val));
+}
+function resolveDependency(taskId){
+  const t=db.tasks().find(x=>x.id===taskId);if(!t)return;
+  const isMgrTask=MGR_BOARD_IDS.includes(t.assignee_id);
+  const statusOpts=isMgrTask
+    ?[['todo','TO DO'],['in_progress','IN PROGRESS'],['to_be_approved','TO BE APPROVED']]
+    :[['todo','To be Picked'],['in_progress','WIP'],['review','Review/Test'],['discussion','Discussion']];
+  const opts=statusOpts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+  document.getElementById('modal').innerHTML=`
+    <div class="modal-hdr"><h3>✅ Resolve Dependency</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Dependency resolved — move task back to:</div>
+    <div class="fg"><label>New Status</label>
+      <select id="resolve-status" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">${opts}</select>
+    </div>
+    <div class="form-actions">
+      <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="confirmResolve('${taskId}',${isMgrTask?'true':'false'})">✅ Resolve</button>
+    </div>\`;
+  document.getElementById('moverlay').style.display='flex';
+}
+function confirmResolve(taskId,isMgrTask){
+  const status=document.getElementById('resolve-status').value;
+  db.update(taskId,{status,blocker_reason:null});
+  closeModal();
+  if(isMgrTask)renderMgrBoard();else render();
+  toast('✅ Dependency resolved — moved to '+status);
 }
 function tcardHTML(t){
   const a=uid(t.assignee_id);
@@ -944,6 +1010,7 @@ const MGR_COLS=[
   {key:'to_be_approved',label:'TO BE APPROVED',color:'#b45309',bg:'#fef3c7'},
   {key:'hod_approved',label:'APPROVED BY HOD',color:'#6d28d9',bg:'#ede9fe'},
   {key:'aligned',label:'ALIGNED',color:'#065f46',bg:'#d1fae5'},
+  {key:'dependent',label:'DEPENDENT',color:'#7c3aed',bg:'#f5f3ff'},
 ];
 const SM_IDS=['u5','u6']; // Avinash, Saivya
 const _mgrF={mgr:'',status:''};
@@ -978,7 +1045,16 @@ function renderMgrBoard(){
   const mgrUsers=MGR_BOARD_IDS.map(id=>USERS.find(u=>u.id===id)).filter(Boolean);
   const visibleCols=_mgrF.status?MGR_COLS.filter(c=>c.key===_mgrF.status):MGR_COLS;
   const board='<div class="board">'+visibleCols.map(col=>{
-    const colTasks=allTasks.filter(t=>t.status===col.key);
+    const colTasks=col.key==='dependent'
+      ?db.tasks().filter(t=>{
+          if(t.status!=='dependant')return false;
+          const dep=t.blocker_reason||'';
+          if(!dep.startsWith('__dep:'))return false;
+          const depId=dep.replace('__dep:','');
+          if(!MGR_BOARD_IDS.includes(depId))return false;
+          return _mgrF.mgr?depId===_mgrF.mgr:true;
+        })
+      :allTasks.filter(t=>t.status===col.key);
     const cards=colTasks.map(t=>{
       const a=uid(t.assignee_id);
       const edd=t.edd_sm||t.edd;
@@ -1004,7 +1080,11 @@ function renderMgrBoard(){
         </div>
         ${isHodApproved&&isSM?`<div style="margin-top:8px;"><button type="button" onclick="event.stopPropagation();mgrAlignDev('${t.id}')" style="width:100%;padding:6px;background:#ede9fe;color:#6d28d9;border:1.5px solid #c4b5fd;border-radius:8px;font-size:11px;font-weight:800;cursor:pointer;">👤 Align to Developer</button></div>`:''}
         ${isHodApproved&&!isSM?`<div style="margin-top:8px;font-size:10px;color:#7c3aed;font-weight:700;text-align:center;">⏳ Awaiting SM alignment</div>`:''}
-      </div>`;
+        ${col.key==='dependent'?`<div style="margin-top:6px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">
+          <span style="font-size:9px;padding:2px 6px;border-radius:10px;font-weight:700;background:${MGR_BOARD_IDS.includes(t.assignee_id)?'#dbeafe':'#d1fae5'};color:${MGR_BOARD_IDS.includes(t.assignee_id)?'#1e40af':'#065f46'}">${MGR_BOARD_IDS.includes(t.assignee_id)?'MGR TASK':'DEV TASK'}</span>
+          ${t.blocker_reason?.startsWith('__dep:')?`<span style="font-size:10px;color:#7c3aed;font-weight:700;">🔗 ${depLabel(t.blocker_reason.replace('__dep:',''))}</span>`:''}
+        </div>
+        <button type="button" onclick="event.stopPropagation();resolveDependency('${t.id}')" style="margin-top:6px;width:100%;padding:5px;background:#d1fae5;color:#065f46;border:1.5px solid #6ee7b7;border-radius:7px;font-size:11px;font-weight:700;cursor:pointer;">✅ Resolve</button>`:''}\n      </div>`;
     }).join('');
     return`<div class="board-col" ondragover="event.preventDefault()" ondrop="event.preventDefault();mgrDrop('${col.key}')">
       <div class="board-col-hdr">
@@ -1024,6 +1104,7 @@ function mgrDrop(status){
   if(task?.status==='aligned'||status==='aligned'||(status==='hod_approved'&&!SM_IDS.includes(S.user.id))){
     _mgrDragId=null;toast('⚠️ Not allowed');return;
   }
+  if(status==='dependent'){const tid=_mgrDragId;_mgrDragId=null;showDependencyModal(tid,true);return;}
   db.update(_mgrDragId,{status});
   _mgrDragId=null;
   renderMgrBoard();
