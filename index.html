@@ -943,21 +943,38 @@ const MGR_COLS=[
   {key:'to_be_approved',label:'TO BE APPROVED',color:'#b45309',bg:'#fef3c7'},
   {key:'aligned',label:'ALIGNED',color:'#065f46',bg:'#d1fae5'},
 ];
+const _mgrF={mgr:'',status:''};
 function renderManagerBoard(){
   const r=S.user.role;
   const act=document.getElementById('pg-actions');
   act.innerHTML=`<span id="sync-dot" class="sync-dot" title="Live sync active"></span>
     <button class="btn btn-secondary btn-sm" onclick="db.refresh().then(()=>toast('🔄 Refreshed'))">🔄 Refresh</button>
     <button class="btn btn-primary btn-sm" onclick="showMgrTaskModal()">+ New Task</button>`;
+  const mgrOpts=MGR_BOARD_IDS.map(id=>USERS.find(u=>u.id===id)).filter(Boolean).map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  const statusOpts=MGR_COLS.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
   const c=document.getElementById('content');
-  c.innerHTML='<div id="mgr-brd"></div>';
+  c.innerHTML=`
+    <div class="filter-bar">
+      <select id="mf-mgr" onchange="_mgrF.mgr=this.value;renderMgrBoard()">
+        <option value="">All Managers</option>${mgrOpts}
+      </select>
+      <select id="mf-status" onchange="_mgrF.status=this.value;renderMgrBoard()">
+        <option value="">All Statuses</option>${statusOpts}
+      </select>
+    </div>
+    <div id="mgr-brd"></div>`;
+  // Restore saved filters
+  if(_mgrF.mgr)document.getElementById('mf-mgr').value=_mgrF.mgr;
+  if(_mgrF.status)document.getElementById('mf-status').value=_mgrF.status;
   renderMgrBoard();
 }
 function renderMgrBoard(){
   const el=document.getElementById('mgr-brd');if(!el)return;
-  const allTasks=db.tasks().filter(t=>MGR_BOARD_IDS.includes(t.assignee_id));
+  let allTasks=db.tasks().filter(t=>MGR_BOARD_IDS.includes(t.assignee_id));
+  if(_mgrF.mgr)allTasks=allTasks.filter(t=>t.assignee_id===_mgrF.mgr);
   const mgrUsers=MGR_BOARD_IDS.map(id=>USERS.find(u=>u.id===id)).filter(Boolean);
-  const board='<div class="board">'+MGR_COLS.map(col=>{
+  const visibleCols=_mgrF.status?MGR_COLS.filter(c=>c.key===_mgrF.status):MGR_COLS;
+  const board='<div class="board">'+visibleCols.map(col=>{
     const colTasks=allTasks.filter(t=>t.status===col.key);
     const cards=colTasks.map(t=>{
       const a=uid(t.assignee_id);
