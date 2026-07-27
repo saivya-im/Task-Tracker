@@ -649,7 +649,12 @@ async function initApp(){
   const todayStr=new Date().toISOString().slice(0,10);
   const absentIds=await SB.getAbsent(todayStr);
   S.absentDevs=new Set(absentIds);
-  nav(u.role==='developer'?'my-tasks':'board');
+  // Restore last view and filters
+  const savedView=sessionStorage.getItem('scrumView');
+  const savedFilters=sessionStorage.getItem('scrumFilters');
+  if(savedFilters){try{Object.assign(S.filters,JSON.parse(savedFilters));}catch(e){}}
+  const defaultView=u.role==='developer'?'my-tasks':'board';
+  nav(savedView||defaultView);
   // Auto-refresh every 30s to sync team changes
   S.refreshTimer=setInterval(()=>db.refresh(),30000);
 }
@@ -677,6 +682,7 @@ function buildNav(){
 
 function nav(view){
   S.view=view;
+  sessionStorage.setItem('scrumView',view);
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('nav-'+view)?.classList.add('active');
   render();
@@ -733,6 +739,7 @@ function gf(){
   const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
   const f={s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo'),cb:g('fcb')};
   Object.assign(S.filters,f);
+  sessionStorage.setItem('scrumFilters',JSON.stringify(f));
   return f;
 }
 
