@@ -543,8 +543,8 @@ async function doLogin(){
   loginSetLoading(false);
   const u=USERS.find(u=>u.id===userId);
   S.user=u;
-  sessionStorage.setItem('scrumUserId', userId);
-  sessionStorage.setItem('scrumUserId', userId);
+  localStorage.setItem('scrumUserId', userId);
+  localStorage.setItem('scrumUserId', userId);
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
@@ -629,7 +629,7 @@ async function doChangePassword(userId){
 }
 function logout(){
   clearInterval(S.refreshTimer);
-  sessionStorage.removeItem('scrumUserId');
+  localStorage.removeItem('scrumUserId');
   S.user=null;S.tasks=[];
   document.getElementById('app').style.display='none';
   document.getElementById('login-page').style.display='flex';
@@ -657,8 +657,8 @@ async function initApp(){
   const absentIds=await SB.getAbsent(todayStr);
   S.absentDevs=new Set(absentIds);
   // Restore last view and filters
-  const savedView=sessionStorage.getItem('scrumView');
-  const savedFilters=sessionStorage.getItem('scrumFilters');
+  const savedView=localStorage.getItem('scrumView');
+  const savedFilters=localStorage.getItem('scrumFilters');
   if(savedFilters){try{Object.assign(S.filters,JSON.parse(savedFilters));}catch(e){}}
   const defaultView=u.role==='developer'?'my-tasks':'board';
   nav(savedView||defaultView);
@@ -690,7 +690,7 @@ function buildNav(){
 
 function nav(view){
   S.view=view;
-  sessionStorage.setItem('scrumView',view);
+  localStorage.setItem('scrumView',view);
   document.querySelectorAll('.nav-item').forEach(el=>el.classList.remove('active'));
   document.getElementById('nav-'+view)?.classList.add('active');
   render();
@@ -748,7 +748,7 @@ function gf(){
   const g=id=>{const e=document.getElementById(id);return e?e.value:'';};
   const f={s:g('fs').toLowerCase(),d:g('fd'),t:g('ft'),p:g('fp'),m:g('fm'),med:g('fmed'),o:g('fo'),cb:g('fcb')};
   Object.assign(S.filters,f);
-  sessionStorage.setItem('scrumFilters',JSON.stringify(f));
+  localStorage.setItem('scrumFilters',JSON.stringify(f));
   return f;
 }
 
@@ -2720,7 +2720,7 @@ function toast(msg){
 // ── BOOT ──────────────────────────────────────────────────
 (function(){
   populateLoginDropdown();
-  const savedId = sessionStorage.getItem('scrumUserId');
+  const savedId = localStorage.getItem('scrumUserId');
   if(savedId){
     const u = USERS.find(u=>u.id===savedId);
     if(u){
