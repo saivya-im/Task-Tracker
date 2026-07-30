@@ -819,13 +819,15 @@ function DEP_OPTIONS(){
   return [
     {val:'SA',label:'SA'},
     {val:'API',label:'API Team'},
-    ...USERS.filter(u=>MGR_BOARD_IDS.includes(u.id)).map(u=>({val:u.id,label:u.name}))
+    ...USERS.filter(u=>MGR_BOARD_IDS.includes(u.id)).map(u=>({val:u.id,label:u.name})),
+    {val:'__other__',label:'Others…'}
   ];
 }
 function depLabel(val){
   if(!val)return '';
   if(val==='SA')return 'SA';
   if(val==='API')return 'API Team';
+  if(val.startsWith('__other__:'))return val.replace('__other__:','');
   const u=USERS.find(x=>x.id===val);
   return u?u.name:val;
 }
@@ -835,9 +837,12 @@ function showDependencyModal(taskId,fromMgr){
     <div class="modal-hdr"><h3>🔗 Mark as Dependent</h3><button class="modal-close" onclick="closeModal()">✕</button></div>
     <div style="font-size:13px;color:var(--text2);margin-bottom:14px;">Select what this task is dependent on:</div>
     <div class="fg"><label>Dependent On</label>
-      <select id="dep-on" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+      <select id="dep-on" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;" onchange="document.getElementById('dep-other-wrap').style.display=this.value==='__other__'?'block':'none'">
         <option value="">— Select —</option>${opts}
       </select>
+    </div>
+    <div id="dep-other-wrap" style="display:none;margin-top:10px;">
+      <input id="dep-other-text" type="text" placeholder="Enter team / person name…" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;box-sizing:border-box;"/>
     </div>
     <div class="form-actions">
       <button type="button" class="btn btn-secondary" onclick="closeModal()">Cancel</button>
@@ -846,8 +851,13 @@ function showDependencyModal(taskId,fromMgr){
   document.getElementById('moverlay').style.display='flex';
 }
 function saveDependency(taskId,fromMgr){
-  const val=document.getElementById('dep-on').value;
+  let val=document.getElementById('dep-on').value;
   if(!val){alert('Select a dependency');return;}
+  if(val==='__other__'){
+    const txt=(document.getElementById('dep-other-text')?.value||'').trim();
+    if(!txt){alert('Please enter the team or person name');return;}
+    val='__other__:'+txt;
+  }
   db.update(taskId,{status:'dependant',blocker_reason:'__dep:'+val});
   closeModal();
   if(fromMgr)renderMgrBoard();else render();
