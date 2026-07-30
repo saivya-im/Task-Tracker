@@ -2034,7 +2034,13 @@ function saveST(taskId){
 function slideProgress(id,v){
   document.getElementById('pval').textContent=v+'%';
   const f=document.getElementById('bpf');if(f){f.style.width=v+'%';f.style.background=progColor(parseInt(v));}
-  db.update(id,{progress:parseInt(v)});render();
+  const changes={progress:parseInt(v)};
+  if(parseInt(v)===100){
+    const t=db.tasks().find(x=>x.id===id);
+    if(t&&t.status!=='done')changes.status='done';
+  }
+  db.update(id,changes);render();
+  if(changes.status==='done')toast('✅ Task marked as Done');
 }
 
 function saveComment(taskId){
