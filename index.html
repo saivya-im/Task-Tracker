@@ -425,8 +425,12 @@ const db={
       render();
       // Only re-render drawer if user is NOT actively typing a comment
       if(S.openTask){
+        const drawerEl=document.getElementById('drawer');
+        const modalOpen=document.getElementById('moverlay')?.style.display==='flex';
+        const activeEl=document.activeElement;
+        const activeInDrawer=drawerEl&&drawerEl.contains(activeEl)&&['INPUT','TEXTAREA','SELECT'].includes(activeEl?.tagName);
         const cmtInput=document.getElementById('cmti-'+S.openTask);
-        if(!cmtInput||document.activeElement!==cmtInput) openDrawer(S.openTask);
+        if(!modalOpen&&!activeInDrawer&&(!cmtInput||activeEl!==cmtInput)) openDrawer(S.openTask);
       }
     }catch(e){}
     setSyncDot('live');
@@ -2466,12 +2470,12 @@ function showSummary(){
         <div style="font-size:11px;color:var(--text2);margin-top:2px;" id="smry-count"></div>
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
-        <button onclick="(function(){const m=document.getElementById('modal');const isFs=m.classList.toggle('fullscreen');this.textContent=isFs?'⊡':'⛶';m.querySelector('.tbl-wrap').style.maxHeight=isFs?'calc(100vh - 120px)':'65vh';}).call(this)" style="background:none;border:1.5px solid var(--border);border-radius:6px;font-size:16px;cursor:pointer;padding:2px 7px;color:var(--text2);" title="Fullscreen">⛶</button>
+        <button onclick="(function(){const m=document.getElementById('modal');const isFs=m.classList.toggle('fullscreen');this.textContent=isFs?'⊡':'⛶';const hdr=m.querySelector('.modal-hdr');const ftr=document.getElementById('smry-footer');const cnt=document.getElementById('smry-count');if(isFs){hdr.style.display='none';if(ftr)ftr.style.display='none';if(cnt)cnt.style.display='none';}else{hdr.style.display='';if(ftr)ftr.style.display='';if(cnt)cnt.style.display='';}m.querySelector('.tbl-wrap').style.maxHeight=isFs?'100vh':'65vh';}).call(this)" style="background:none;border:1.5px solid var(--border);border-radius:6px;font-size:16px;cursor:pointer;padding:2px 7px;color:var(--text2);" title="Fullscreen">⛶</button>
         <button class="modal-close" onclick="closeModal()">✕</button>
       </div>
     </div>
     <div class="tbl-wrap" style="overflow-x:auto;border:1.5px solid var(--border);border-radius:10px;max-height:65vh;overflow-y:auto;" id="smry-tbl-wrap" onscroll="closeSmryFilter()"></div>
-    <div style="display:flex;gap:8px;margin-top:14px;">
+    <div id="smry-footer" style="display:flex;gap:8px;margin-top:14px;">
       <button class="btn btn-secondary" onclick="copyToSheet()">📊 Copy to Sheet</button>
       <button id="gchat-btn" class="btn btn-primary" onclick="postToGChat()">📨 Post to Google Chat</button>
     </div>
@@ -2530,19 +2534,15 @@ function renderSummaryTable(){
     if(S.absentDevs.has(dev.id)){return;}
     if(!dt.length)return;
     rowCount+=dt.length;
-    rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#f8fafc;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);">
-      <div style="display:flex;align-items:center;gap:8px;">
-        <div style="width:22px;height:22px;border-radius:50%;background:${dev.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;">${av(dev)}</div>
-        ${dev.name}
-      </div></td></tr>`;
+
     dt.forEach(t=>{
       const edd=t.edd_sm||t.edd;const br=isBreached(t);
       const d2=t.created_at?new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—';
       rows+=`<tr>
         <td style="${tdS}white-space:nowrap;color:var(--text2);font-size:11px;">${d2}</td>
         <td style="${tdS}">${t.module?`<span style="font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:10px;">${t.module}</span>`:'—'}</td>
+        <td style="${tdS}white-space:nowrap;font-size:12px;font-weight:800;color:var(--text);">${dev.name.split(' ')[0]}</td>
         <td style="${tdS}max-width:300px;"><div style="font-weight:600;line-height:1.4;">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>${t.blocker_reason?`<div style="font-size:10px;color:var(--blocked);margin-top:1px;">🚫 ${t.blocker_reason}</div>`:''}</td>
-        <td style="${tdS}white-space:nowrap;font-size:11px;">${dev.name.split(' ')[0]}</td>
         <td style="${tdS}"><span class="chip ${schip(t.status)}" style="font-size:10px;">${slabel(t.status)}</span></td>
         <td style="${tdS}white-space:nowrap;${br?'color:var(--blocked);font-weight:700;':''}">${edd?fdate(edd)+(br?' ⚠️':''):'—'}</td>
         <td style="${tdS}"><span class="chip ch-${t.priority}" style="font-size:10px;">${t.priority||'—'}</span></td>
@@ -2562,22 +2562,22 @@ function renderSummaryTable(){
       </div></td></tr>`;
   }
   const tbl=`<table style="width:100%;border-collapse:collapse;background:#fff;">
-    <thead style="position:sticky;top:0;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.1);"><tr><th style="${thS}">Date</th><th style="${thS}">Module${filterIcon('modules')}</th><th style="${thS}">Item</th><th style="${thS}">Assignee${filterIcon('devs')}</th><th style="${thS}">Status${filterIcon('statuses')}</th><th style="${thS}">EDD</th><th style="${thS}">Priority${filterIcon('priorities')}</th><th style="${thS}">Ticket ID</th><th style="${thS}">Remark</th></tr></thead>
+    <thead style="position:sticky;top:0;z-index:2;box-shadow:0 2px 4px rgba(0,0,0,.1);"><tr><th style="${thS}">Date</th><th style="${thS}">Module${filterIcon('modules')}</th><th style="${thS}">Assignee${filterIcon('devs')}</th><th style="${thS}">Item</th><th style="${thS}">Status${filterIcon('statuses')}</th><th style="${thS}">EDD</th><th style="${thS}">Priority${filterIcon('priorities')}</th><th style="${thS}">Ticket ID</th><th style="${thS}">Remark</th></tr></thead>
     <tbody>${rows||'<tr><td colspan="9" style="padding:20px;text-align:center;color:#94a3b8;">No tasks match filters</td></tr>'}</tbody>
   </table>`;
   // Unassigned tasks section
   const unassignedTasks=allTasks.filter(t=>!t.assignee_id&&_SF.statuses.has(t.status)&&_SF.priorities.has(t.priority)&&_SF.modules.has(t.module||''));
   if(_SF.devs.has('__unassigned__')&&unassignedTasks.length){
     rowCount+=unassignedTasks.length;
-    rows+=`<tr><td colspan="9" style="padding:8px 12px;background:#f8fafc;font-size:12px;font-weight:800;color:var(--text);border-bottom:1px solid var(--border);"><div style="display:flex;align-items:center;gap:8px;"><div style="width:22px;height:22px;border-radius:50%;background:#94a3b8;display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:800;color:#fff;">?</div>Unassigned</div></td></tr>`;
+
     unassignedTasks.forEach(t=>{
       const edd=t.edd_sm||t.edd;const br=isBreached(t);
       const d2=t.created_at?new Date(t.created_at).toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'—';
       rows+=`<tr>
         <td style="${tdS}white-space:nowrap;color:var(--text2);font-size:11px;">${d2}</td>
         <td style="${tdS}">${t.module?`<span style="font-size:11px;font-weight:700;background:#f1f5f9;color:#475569;padding:2px 7px;border-radius:10px;">${t.module}</span>`:'—'}</td>
+        <td style="${tdS}white-space:nowrap;font-size:12px;color:var(--text2);">—</td>
         <td style="${tdS}max-width:300px;"><div style="font-weight:600;line-height:1.4;">${TYPE_ICON[t.type]||'📌'} ${t.title}</div>${t.blocker_reason?`<div style="font-size:10px;color:var(--blocked);margin-top:1px;">🚫 ${t.blocker_reason}</div>`:''}</td>
-        <td style="${tdS}white-space:nowrap;font-size:11px;color:var(--text2);">—</td>
         <td style="${tdS}"><span class="chip ${schip(t.status)}" style="font-size:10px;">${slabel(t.status)}</span></td>
         <td style="${tdS}white-space:nowrap;${br?'color:var(--blocked);font-weight:700;':''}">${edd?fdate(edd)+(br?' ⚠️':''):'—'}</td>
         <td style="${tdS}"><span class="chip ch-${t.priority}" style="font-size:10px;">${t.priority||'—'}</span></td>
