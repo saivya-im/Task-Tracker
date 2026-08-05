@@ -307,6 +307,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="user-details"><p id="s-name"></p><span id="s-role"></span></div>
       </div>
       <button class="logout-btn" onclick="logout()">Sign Out</button>
+      <button class="logout-btn" onclick="changePassword()" style="margin-top:4px;">🔐 Change Password</button>
+      <button class="logout-btn" id="admin-reset-btn" onclick="showAdminResetPwd()" style="margin-top:4px;display:none;">👤 Reset User Password</button>
     </div>
   </div>
   <div class="main">
@@ -357,6 +359,9 @@ const SB={
   },
   async setPwd(userId,hash){
     return fetch(this.url+'/rest/v1/user_passwords',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates'},body:JSON.stringify({user_id:userId,password_hash:hash,updated_at:new Date().toISOString()})});
+  },
+  async deletePwd(userId){
+    return fetch(this.url+'/rest/v1/user_passwords?user_id=eq.'+userId,{method:'DELETE',headers:this.hdrs});
   },
   async upsertBugCount(data){
     const payload=Object.fromEntries(Object.entries(data).filter(([,v])=>v!=null&&v!==undefined));
@@ -577,10 +582,23 @@ async function saveNewPassword(userId){
   if(np!==cp){err.textContent='Passwords do not match.';return;}
   err.textContent='Saving…';
   const hash=await hashPwd(np);
-  await SB.setPwd(userId,hash);
+  err.textContent='Saving…';
+  try{
+    const res=await SB.setPwd(userId,hash);
+    if(!res.ok){
+      const errText=await res.text().catch(()=>'Unknown error');
+      err.textContent='Failed to save password ('+res.status+'). Contact Avinash/Saivya.';
+      console.error('setPwd failed:',res.status,errText);
+      return;
+    }
+  }catch(e){
+    err.textContent='Network error saving password. Try again.';
+    return;
+  }
   document.getElementById('set-pwd-overlay').remove();
   const u=USERS.find(u=>u.id===userId);
   S.user=u;
+  localStorage.setItem('scrumUserId',userId);
   document.getElementById('login-page').style.display='none';
   document.getElementById('app').style.display='flex';
   initApp();
@@ -627,6 +645,45 @@ async function doChangePassword(userId){
   document.getElementById('chpwd-overlay').remove();
   toast('🔐 Password updated successfully');
 }
+async function showAdminResetPwd(){
+  const userOpts=USERS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  const ol=document.createElement('div');
+  ol.id='admin-reset-overlay';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  ol.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;width:380px;box-shadow:0 24px 64px rgba(0,0,0,.2);">
+    <div style="font-size:18px;font-weight:800;margin-bottom:6px;">👤 Reset User Password</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:16px;">Select a user to clear their password so they can set a new one on next login.</div>
+    <div class="fg"><label>User</label>
+      <select id="ar-user" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <option value="">— Select user —</option>${userOpts}
+      </select>
+    </div>
+    <div style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px;" id="ar-err"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="document.getElementById('admin-reset-overlay').remove()" style="flex:1;padding:10px;background:#f1f5f9;color:var(--text);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+      <button onclick="doAdminResetPwd()" style="flex:1;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">🗑 Reset Password</button>
+    </div>
+  </div>`;
+  document.body.appendChild(ol);
+}
+async function doAdminResetPwd(){
+  const userId=document.getElementById('ar-user').value;
+  const err=document.getElementById('ar-err');
+  if(!userId){err.textContent='Select a user.';return;}
+  const u=USERS.find(x=>x.id===userId);
+  err.textContent='Resetting…';
+  try{
+    const res=await SB.deletePwd(userId);
+    if(res.ok||res.status===404){
+      document.getElementById('admin-reset-overlay').remove();
+      toast('✅ Password reset for '+u?.name+' — they can now set a new one on login');
+    } else {
+      err.textContent='Error: '+res.status+'. Try again.';
+    }
+  }catch(e){
+    err.textContent='Network error. Try again.';
+  }
+}
 function logout(){
   clearInterval(S.refreshTimer);
   localStorage.removeItem('scrumUserId');
@@ -648,6 +705,8 @@ async function initApp(){
   document.getElementById('s-av').style.background=u.color;
   document.getElementById('s-name').textContent=u.name;
   document.getElementById('s-role').textContent=u.role.replace('_',' ');
+  const adminBtn=document.getElementById('admin-reset-btn');
+  if(adminBtn)adminBtn.style.display=SM_IDS.includes(u.id)?'block':'none';
   const now=new Date();
   document.getElementById('sprint-label').textContent='Week '+weekNum(now)+' · '+now.toLocaleDateString('en-US',{month:'short',year:'numeric'});
   buildNav();
