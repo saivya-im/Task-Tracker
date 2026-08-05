@@ -285,7 +285,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div class="fg">
       <label>Password</label>
-      <input type="password" id="l-pass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;background:#fff;"/>
+      <input type="text" id="l-pass" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);outline:none;background:#fff;"/>
     </div>
     <div class="err" id="l-err">Incorrect password.</div>
     <button class="btn btn-primary btn-full" style="margin-top:6px" id="l-btn" onclick="doLogin()">Sign In →</button>
@@ -564,9 +564,9 @@ function showSetPassword(userId,initialPass){
     <div style="font-size:20px;margin-bottom:4px;">🔐 Set Your Password</div>
     <div style="font-size:13px;color:#64748b;margin-bottom:20px;">Hi <b>${u?.name}</b>, this is your first login. Choose a personal password.</div>
     <div class="fg"><label>New Password</label>
-    <input type="password" id="sp-new" placeholder="Enter new password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <input type="text" id="sp-new" placeholder="Enter new password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
     <div class="fg"><label>Confirm Password</label>
-    <input type="password" id="sp-confirm" placeholder="Confirm password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <input type="text" id="sp-confirm" placeholder="Confirm password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
     <div style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px;" id="sp-err"></div>
     <button onclick="saveNewPassword('${userId}')" style="width:100%;padding:10px;background:var(--blue);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;">Set Password & Sign In</button>
   </div>`;
@@ -612,11 +612,11 @@ async function changePassword(){
   ol.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;width:360px;box-shadow:0 24px 64px rgba(0,0,0,.2);">
     <div style="font-size:18px;font-weight:800;margin-bottom:16px;">🔐 Change Password</div>
     <div class="fg"><label>Current Password</label>
-    <input type="password" id="cp-cur" placeholder="Current password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <input type="text" id="cp-cur" placeholder="Current password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
     <div class="fg"><label>New Password</label>
-    <input type="password" id="cp-new" placeholder="New password (min 6 chars)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <input type="text" id="cp-new" placeholder="New password (min 6 chars)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
     <div class="fg"><label>Confirm New Password</label>
-    <input type="password" id="cp-cfm" placeholder="Confirm new password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
+    <input type="text" id="cp-cfm" placeholder="Confirm new password" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;outline:none;"></div>
     <div style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px;" id="cp-err"></div>
     <div style="display:flex;gap:8px;">
       <button onclick="document.getElementById('chpwd-overlay').remove()" style="flex:1;padding:10px;background:#f1f5f9;color:var(--text);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
