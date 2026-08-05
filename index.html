@@ -292,6 +292,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="demo-hint">
       <strong>First time? You'll be prompted to set your password.</strong>
     </div>
+    <div style="text-align:center;margin-top:10px;">
+      <button onclick="showForgotPassword()" style="background:none;border:none;color:#3b82f6;font-size:12px;cursor:pointer;text-decoration:underline;">Forgot password?</button>
+    </div>
   </div>
 </div>
 
@@ -644,6 +647,61 @@ async function doChangePassword(userId){
   await SB.setPwd(userId,newHash);
   document.getElementById('chpwd-overlay').remove();
   toast('🔐 Password updated successfully');
+}
+function showForgotPassword(){
+  const smOpts=USERS.filter(u=>SM_IDS.includes(u.id)).map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  const allOpts=USERS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
+  const ol=document.createElement('div');
+  ol.id='forgot-pwd-overlay';
+  ol.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  ol.innerHTML=`<div style="background:#fff;border-radius:16px;padding:28px;width:380px;box-shadow:0 24px 64px rgba(0,0,0,.3);">
+    <div style="font-size:18px;font-weight:800;margin-bottom:4px;">🔑 Reset Password</div>
+    <div style="font-size:12px;color:#64748b;margin-bottom:18px;">A Scrum Master must authenticate to reset a user's password.</div>
+    <div class="fg"><label>Scrum Master</label>
+      <select id="fp-sm" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <option value="">— Select SM —</option>${smOpts}
+      </select>
+    </div>
+    <div class="fg"><label>SM Password</label>
+      <input type="text" id="fp-sm-pwd" placeholder="Enter your password" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;"/>
+    </div>
+    <div class="fg"><label>User to Reset</label>
+      <select id="fp-target" style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;">
+        <option value="">— Select user —</option>${allOpts}
+      </select>
+    </div>
+    <div style="color:#ef4444;font-size:12px;min-height:18px;margin-bottom:10px;" id="fp-err"></div>
+    <div style="display:flex;gap:8px;">
+      <button onclick="document.getElementById('forgot-pwd-overlay').remove()" style="flex:1;padding:10px;background:#f1f5f9;color:var(--text);border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Cancel</button>
+      <button onclick="doForgotReset()" style="flex:1;padding:10px;background:#ef4444;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;">Reset Password</button>
+    </div>
+  </div>\`;
+  document.body.appendChild(ol);
+}
+async function doForgotReset(){
+  const smId=document.getElementById('fp-sm').value;
+  const smPwd=document.getElementById('fp-sm-pwd').value;
+  const targetId=document.getElementById('fp-target').value;
+  const err=document.getElementById('fp-err');
+  if(!smId){err.textContent='Select a Scrum Master.';return;}
+  if(!smPwd){err.textContent='Enter SM password.';return;}
+  if(!targetId){err.textContent='Select the user to reset.';return;}
+  err.textContent='Verifying…';
+  const storedHash=await SB.getPwd(smId);
+  if(!storedHash){err.textContent='SM has no password set. Contact Avinash/Saivya directly.';return;}
+  const inputHash=await hashPwd(smPwd);
+  if(inputHash!==storedHash){err.textContent='Incorrect SM password.';return;}
+  err.textContent='Resetting…';
+  try{
+    const res=await SB.deletePwd(targetId);
+    if(res.ok||res.status===404||res.status===204){
+      const u=USERS.find(x=>x.id===targetId);
+      document.getElementById('forgot-pwd-overlay').remove();
+      alert('✅ Password reset for '+u?.name+'. They can now log in and set a new password.');
+    } else {
+      err.textContent='Error '+res.status+'. Try again.';
+    }
+  }catch(e){err.textContent='Network error. Try again.';}
 }
 async function showAdminResetPwd(){
   const userOpts=USERS.map(u=>`<option value="${u.id}">${u.name}</option>`).join('');
