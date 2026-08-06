@@ -1084,9 +1084,7 @@ function renderWorkload(){
         </div>`;
       }).join('')}
     </div>
-    <div style="margin-top:14px;text-align:right;">
-      <button id="bug-save-btn" onclick="saveAllBugCounts()" style="padding:9px 24px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;">💾 Save</button>
-    </div>`;
+    `;
 }
 
 // ── MY TASKS (DEV) ────────────────────────────────────────
@@ -1374,7 +1372,10 @@ async function renderBugSummary(){
       <div style="font-size:15px;font-weight:800;">🐛 Bugs Resolved on</div>
       <input type="date" value="${_bugDate}" onchange="_bugDate=this.value;renderBugSummary()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;outline:none;cursor:pointer;">
       <div style="font-size:12px;color:var(--text2);">${dateStr}</div>
-      <div style="margin-left:auto;background:#dcfce7;color:#15803d;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:800;">${total} bug${total!==1?'s':''} resolved</div>
+      <div style="margin-left:auto;display:flex;align-items:center;gap:10px;">
+        <div style="background:#dcfce7;color:#15803d;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:800;">${total} bug${total!==1?'s':''} resolved</div>
+        <button id="bug-save-btn" onclick="saveAllBugCounts()" style="padding:8px 20px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;">💾 Save</button>
+      </div>
     </div>
     <div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;">
       <table style="width:100%;border-collapse:collapse;background:#fff;">
