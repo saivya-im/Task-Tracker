@@ -1325,6 +1325,61 @@ function submitMgrTask(){
 }
 
 let _bugDate=new Date().toISOString().slice(0,10);
+function saveBugReason(devId,val){localStorage.setItem('bugReason_'+_bugDate+'_'+devId,val);}
+function getBugReason(devId){return localStorage.getItem('bugReason_'+_bugDate+'_'+devId)||'';}
+function saveBugCountOverride(devId,val){localStorage.setItem('bugCount_'+_bugDate+'_'+devId,val);renderBugSummary();}
+function getBugCountOverride(devId){return localStorage.getItem('bugCount_'+_bugDate+'_'+devId);}
+function renderBugSummary(){
+  const allTasks=db.tasks();
+  const allDevs=devs();
+  const dateStr=new Date(_bugDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const rows=allDevs.map(dev=>{
+    const autoCount=allTasks.filter(t=>t.assignee_id===dev.id&&t.type==='bug'&&t.status==='done'&&(t.updated_at||t.created_at||'').slice(0,10)===_bugDate).length;
+    const override=getBugCountOverride(dev.id);
+    const count=override!==null?parseInt(override):autoCount;
+    return{dev,count};
+  });
+  const total=rows.reduce((s,r)=>s+r.count,0);
+  const thS='padding:11px 16px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;background:#1e3a5f;';
+  const tdS='padding:10px 16px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;';
+  document.getElementById('content').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <div style="font-size:15px;font-weight:800;">🐛 Bugs Resolved on</div>
+      <input type="date" value="${_bugDate}" onchange="_bugDate=this.value;renderBugSummary()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;outline:none;cursor:pointer;">
+      <div style="font-size:12px;color:var(--text2);">${dateStr}</div>
+      <div style="margin-left:auto;background:#dcfce7;color:#15803d;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:800;">${total} bug${total!==1?'s':''} resolved</div>
+    </div>
+    <div style="border:1.5px solid var(--border);border-radius:10px;overflow:hidden;">
+      <table style="width:100%;border-collapse:collapse;background:#fff;">
+        <thead><tr>
+          <th style="${thS}">#</th>
+          <th style="${thS}">Developer</th>
+          <th style="${thS}">Bugs Resolved</th>
+          <th style="${thS}">Reason (if none resolved)</th>
+        </tr></thead>
+        <tbody>
+          ${rows.map(({dev,count},idx)=>`<tr style="${count>0?'background:#f0fdf4':''}">
+            <td style="${tdS}color:var(--text2);width:40px;">${idx+1}</td>
+            <td style="${tdS}">
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div class="uav" style="width:28px;height:28px;font-size:10px;background:${dev.color}">${av(dev)}</div>
+                <span style="font-weight:700;">${dev.name}</span>
+              </div>
+            </td>
+            <td style="${tdS}width:140px;">
+              <input type="number" min="0" value="${count}" onchange="saveBugCountOverride('${dev.id}',this.value)" style="width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:20px;font-weight:900;text-align:center;color:${count>0?'#16a34a':'#94a3b8'};outline:none;" onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='var(--border)'">
+            </td>
+            <td style="${tdS}">
+              <input type="text" value="${getBugReason(dev.id)}" placeholder="Enter reason…" onchange="saveBugReason('${dev.id}',this.value)" style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'">
+            </td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+function getBugReason(devId){
+  return localStorage.getItem('bugReason_'+_bugDate+'_'+devId)||'';
+}
 function renderBugSummary(){
   const allTasks=db.tasks();
   const allDevs=devs();
@@ -1353,6 +1408,7 @@ function renderBugSummary(){
           <th style="${thS}">Developer</th>
           <th style="${thS}">Bugs Resolved</th>
           <th style="${thS}">Tasks</th>
+          <th style="${thS}">Reason (if none resolved)</th>
         </tr></thead>
         <tbody>
           ${rows.map(({dev,count,tasks},idx)=>`<tr style="${count>0?'background:#f0fdf4':''}">
@@ -1367,7 +1423,10 @@ function renderBugSummary(){
               <span style="font-size:20px;font-weight:900;color:${count>0?'#16a34a':'#94a3b8'};">${count}</span>
             </td>
             <td style="${tdS}font-size:11px;color:var(--text2);">
-              ${tasks.map(t=>`<span style="display:inline-block;background:#f1f5f9;padding:2px 8px;border-radius:10px;margin:2px;" title="${t.title}">🐛 ${t.title.length>30?t.title.slice(0,30)+'…':t.title}</span>`).join('')||'—'}
+              ${tasks.map(t=>`<span style="display:inline-block;background:#f1f5f9;padding:2px 8px;border-radius:10px;margin:2px;" title="${t.title}">🐛 ${t.title.length>30?t.title.slice(0,30)+'…':t.title}</span>`).join('')||(count===0?'—':'')}
+            </td>
+            <td style="${tdS}">
+              <input type="text" value="${getBugReason(dev.id)}" placeholder="${count===0?'Enter reason…':'—'}" ${count>0?'disabled style="background:transparent;border:none;color:#94a3b8;font-size:12px;width:100%;outline:none;"':'style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"'} onchange="saveBugReason('${dev.id}',this.value)">
             </td>
           </tr>`).join('')}
         </tbody>
