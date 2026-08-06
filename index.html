@@ -1083,7 +1083,10 @@ function renderWorkload(){
           ${dt.length>3?`<div style="font-size:10px;color:var(--blue);margin-top:3px">+${dt.length-3} more</div>`:''}
         </div>`;
       }).join('')}
-    </div>`;
+    </div>
+    <div style="margin-top:14px;text-align:right;">
+      <button id="bug-save-btn" onclick="saveAllBugCounts()" style="padding:9px 24px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:800;cursor:pointer;">💾 Save</button>
+    </div>\`;
 }
 
 // ── MY TASKS (DEV) ────────────────────────────────────────
@@ -1340,12 +1343,20 @@ async function loadDayBugData(){
   _dayBugData={};
   rows.forEach(r=>{_dayBugData[r.dev_id]={bug_count:r.bug_count,comment:r.comment||''};});
 }
-async function saveDayBugField(devId,field,val){
-  const cur=_dayBugData[devId]||{bug_count:0,comment:''};
-  cur[field]=field==='bug_count'?parseInt(val):val;
-  _dayBugData[devId]=cur;
-  await SB.upsertDailyBugCount(devId,_bugDate,cur.bug_count,cur.comment);
-  if(field==='bug_count')renderBugSummary();
+function updateLocalBugField(devId,field,val){
+  if(!_dayBugData[devId])_dayBugData[devId]={bug_count:0,comment:''};
+  _dayBugData[devId][field]=field==='bug_count'?parseInt(val)||0:val;
+}
+async function saveAllBugCounts(){
+  const btn=document.getElementById('bug-save-btn');
+  if(btn){btn.textContent='Saving…';btn.disabled=true;}
+  const allDevs=devs();
+  await Promise.all(allDevs.map(dev=>{
+    const d=_dayBugData[dev.id]||{bug_count:0,comment:''};
+    return SB.upsertDailyBugCount(dev.id,_bugDate,d.bug_count,d.comment);
+  }));
+  if(btn){btn.textContent='✅ Saved!';setTimeout(()=>{btn.textContent='💾 Save';btn.disabled=false;},1500);}
+  toast('✅ Bug counts saved');
 }
 async function renderBugSummary(){
   await loadDayBugData();
@@ -1383,10 +1394,10 @@ async function renderBugSummary(){
               </div>
             </td>
             <td style="${tdS}width:140px;">
-              <input type="number" min="0" value="${count}" onchange="saveDayBugField('${dev.id}','bug_count',this.value)" style="width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:20px;font-weight:900;text-align:center;color:${count>0?'#16a34a':'#94a3b8'};outline:none;" onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='var(--border)'">
+              <input type="number" min="0" value="${count}" oninput="updateLocalBugField('${dev.id}','bug_count',this.value)" style="width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:20px;font-weight:900;text-align:center;color:${count>0?'#16a34a':'#94a3b8'};outline:none;" onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='var(--border)'">
             </td>
             <td style="${tdS}">
-              <input type="text" value="${comment}" placeholder="Add comment…" onchange="saveDayBugField('${dev.id}','comment',this.value)" style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'">
+              <input type="text" value="${comment}" placeholder="Add comment…" oninput="updateLocalBugField('${dev.id}','comment',this.value)" style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'">
             </td>
           </tr>`).join('')}
         </tbody>
