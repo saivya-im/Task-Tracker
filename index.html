@@ -366,6 +366,15 @@ const SB={
   async deletePwd(userId){
     return fetch(this.url+'/rest/v1/user_passwords?user_id=eq.'+userId,{method:'DELETE',headers:this.hdrs});
   },
+  async getDailyBugCounts(date){
+    try{const r=await fetch(this.url+'/rest/v1/daily_bug_counts?date=eq.'+date+'&select=dev_id,bug_count,comment',{headers:this.hdrs});
+    if(!r.ok)return[];return r.json();}catch(e){return[];}
+  },
+  async upsertDailyBugCount(devId,date,bugCount,comment){
+    return fetch(this.url+'/rest/v1/daily_bug_counts',{method:'POST',
+      headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates'},
+      body:JSON.stringify({dev_id:devId,date,bug_count:bugCount,comment:comment||null,updated_at:new Date().toISOString()})});
+  },
   async upsertBugCount(data){
     const payload=Object.fromEntries(Object.entries(data).filter(([,v])=>v!=null&&v!==undefined));
     return fetch(this.url+'/rest/v1/bug_counts',{method:'POST',headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates,return=representation'},body:JSON.stringify(payload)});
@@ -1325,19 +1334,26 @@ function submitMgrTask(){
 }
 
 let _bugDate=new Date().toISOString().slice(0,10);
-function saveBugComment(devId,val){localStorage.setItem('bugComment_'+_bugDate+'_'+devId,val);}
-function getBugComment(devId){return localStorage.getItem('bugComment_'+_bugDate+'_'+devId)||'';}
-function saveBugCountOverride(devId,val){localStorage.setItem('bugCount_'+_bugDate+'_'+devId,val);renderBugSummary();}
-function getBugCountOverride(devId){return localStorage.getItem('bugCount_'+_bugDate+'_'+devId);}
-function renderBugSummary(){
-  const allTasks=db.tasks();
+let _dayBugData={};// {devId: {bug_count, comment}}
+async function loadDayBugData(){
+  const rows=await SB.getDailyBugCounts(_bugDate);
+  _dayBugData={};
+  rows.forEach(r=>{_dayBugData[r.dev_id]={bug_count:r.bug_count,comment:r.comment||''};});
+}
+async function saveDayBugField(devId,field,val){
+  const cur=_dayBugData[devId]||{bug_count:0,comment:''};
+  cur[field]=field==='bug_count'?parseInt(val):val;
+  _dayBugData[devId]=cur;
+  await SB.upsertDailyBugCount(devId,_bugDate,cur.bug_count,cur.comment);
+  if(field==='bug_count')renderBugSummary();
+}
+async function renderBugSummary(){
+  await loadDayBugData();
   const allDevs=devs();
   const dateStr=new Date(_bugDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const rows=allDevs.map(dev=>{
-    const autoCount=allTasks.filter(t=>t.assignee_id===dev.id&&t.type==='bug'&&t.status==='done'&&(t.updated_at||t.created_at||'').slice(0,10)===_bugDate).length;
-    const override=getBugCountOverride(dev.id);
-    const count=override!==null?parseInt(override):autoCount;
-    return{dev,count};
+    const d=_dayBugData[dev.id]||{bug_count:0,comment:''};
+    return{dev,count:d.bug_count,comment:d.comment};
   });
   const total=rows.reduce((s,r)=>s+r.count,0);
   const thS='padding:11px 16px;text-align:left;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:#fff;background:#1e3a5f;';
@@ -1358,7 +1374,7 @@ function renderBugSummary(){
           <th style="${thS}">Comment</th>
         </tr></thead>
         <tbody>
-          ${rows.map(({dev,count},idx)=>`<tr style="${count>0?'background:#f0fdf4':''}">
+          ${rows.map(({dev,count,comment},idx)=>`<tr style="${count>0?'background:#f0fdf4':''}">
             <td style="${tdS}color:var(--text2);width:40px;">${idx+1}</td>
             <td style="${tdS}">
               <div style="display:flex;align-items:center;gap:8px;">
@@ -1367,10 +1383,10 @@ function renderBugSummary(){
               </div>
             </td>
             <td style="${tdS}width:140px;">
-              <input type="number" min="0" value="${count}" onchange="saveBugCountOverride('${dev.id}',this.value)" style="width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:20px;font-weight:900;text-align:center;color:${count>0?'#16a34a':'#94a3b8'};outline:none;" onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='var(--border)'">
+              <input type="number" min="0" value="${count}" onchange="saveDayBugField('${dev.id}','bug_count',this.value)" style="width:80px;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:20px;font-weight:900;text-align:center;color:${count>0?'#16a34a':'#94a3b8'};outline:none;" onfocus="this.style.borderColor='#16a34a'" onblur="this.style.borderColor='var(--border)'">
             </td>
             <td style="${tdS}">
-              <input type="text" value="${getBugComment(dev.id)}" placeholder="Add comment…" onchange="saveBugComment('${dev.id}',this.value)" style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'">
+              <input type="text" value="${comment}" placeholder="Add comment…" onchange="saveDayBugField('${dev.id}','comment',this.value)" style="width:100%;padding:6px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'">
             </td>
           </tr>`).join('')}
         </tbody>
