@@ -371,8 +371,13 @@ const SB={
     if(!r.ok)return[];return r.json();}catch(e){return[];}
   },
   async upsertDailyBugCount(devId,date,bugCount,comment){
-    return fetch(this.url+'/rest/v1/daily_bug_counts',{method:'POST',
-      headers:{...this.hdrs,'Prefer':'resolution=merge-duplicates'},
+    // Try PATCH first (update existing row), then POST if not found
+    const patch=await fetch(this.url+'/rest/v1/daily_bug_counts?dev_id=eq.'+devId+'&date=eq.'+date,{
+      method:'PATCH',headers:this.hdrs,
+      body:JSON.stringify({bug_count:bugCount,comment:comment||null,updated_at:new Date().toISOString()})});
+    if(patch.ok){const d=await patch.json();if(Array.isArray(d)&&d.length>0)return patch;}
+    // No existing row — INSERT
+    return fetch(this.url+'/rest/v1/daily_bug_counts',{method:'POST',headers:this.hdrs,
       body:JSON.stringify({dev_id:devId,date,bug_count:bugCount,comment:comment||null,updated_at:new Date().toISOString()})});
   },
   async upsertBugCount(data){
