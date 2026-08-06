@@ -841,7 +841,7 @@ function render(){
   if(S.view==='board')renderBoard();
   else if(S.view==='workload')renderWorkload();
   else if(S.view==='my-tasks')renderMyTasks();
-  else if(S.view==='bugs')renderBugSummary();
+  else if(S.view==='bugs')renderBugTable();
   else if(S.view==='sprint')renderSprint();
   else if(S.view==='table')renderTable();
   else if(S.view==='planner')renderSprintPlanner();
@@ -1380,6 +1380,9 @@ async function saveAllBugCounts(){
 }
 async function renderBugSummary(){
   await loadDayBugData();
+  renderBugTable();
+}
+function renderBugTable(){
   const allDevs=devs().filter(d=>!SM_IDS.includes(d.id));
   const dateStr=new Date(_bugDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const rows=allDevs.map(dev=>{
