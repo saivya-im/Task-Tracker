@@ -1335,24 +1335,37 @@ function submitMgrTask(){
 }
 
 let _bugDate=new Date().toISOString().slice(0,10);
-let _dayBugData={};// {devId: {bug_count, comment}}
+let _dayBugData={};// {devId: {bug_count, comment}} — loaded from Supabase
+let _dirtyDevs=new Set();// track which devs were edited this session
 async function loadDayBugData(){
   const rows=await SB.getDailyBugCounts(_bugDate);
-  _dayBugData={};
+  _dayBugData={};_dirtyDevs=new Set();
   rows.forEach(r=>{_dayBugData[r.dev_id]={bug_count:r.bug_count,comment:r.comment||''};});
 }
 function updateLocalBugField(devId,field,val){
   if(!_dayBugData[devId])_dayBugData[devId]={bug_count:0,comment:''};
   _dayBugData[devId][field]=field==='bug_count'?parseInt(val)||0:val;
+  _dirtyDevs.add(devId);
 }
 async function saveAllBugCounts(){
   const btn=document.getElementById('bug-save-btn');
   if(btn){btn.textContent='Saving…';btn.disabled=true;}
-  const allDevs=devs();
-  await Promise.all(allDevs.map(dev=>{
-    const d=_dayBugData[dev.id]||{bug_count:0,comment:''};
-    return SB.upsertDailyBugCount(dev.id,_bugDate,d.bug_count,d.comment);
+  // Only save devs that were edited or already have a DB record
+  const toSave=new Set([..._dirtyDevs,...Object.keys(_dayBugData)]);
+  if(toSave.size===0){toast('Nothing to save');if(btn){btn.textContent='💾 Save';btn.disabled=false;}return;}
+  const results=await Promise.all([...toSave].map(async devId=>{
+    const d=_dayBugData[devId]||{bug_count:0,comment:''};
+    const res=await SB.upsertDailyBugCount(devId,_bugDate,d.bug_count,d.comment);
+    return{devId,ok:res.ok,status:res.status};
   }));
+  const failed=results.filter(r=>!r.ok);
+  if(failed.length){
+    console.error('Save failed for:',failed);
+    toast('⚠️ Save failed ('+failed[0].status+'). Check Supabase RLS policy.');
+    if(btn){btn.textContent='⚠️ Error';setTimeout(()=>{btn.textContent='💾 Save';btn.disabled=false;},2000);}
+    return;
+  }
+  _dirtyDevs=new Set();
   if(btn){btn.textContent='✅ Saved!';setTimeout(()=>{btn.textContent='💾 Save';btn.disabled=false;},1500);}
   toast('✅ Bug counts saved');
 }
