@@ -1371,7 +1371,7 @@ async function saveAllBugCounts(){
 }
 async function renderBugSummary(){
   await loadDayBugData();
-  const allDevs=devs();
+  const allDevs=devs().filter(d=>!SM_IDS.includes(d.id));
   const dateStr=new Date(_bugDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   const rows=allDevs.map(dev=>{
     const d=_dayBugData[dev.id]||{bug_count:0,comment:''};
