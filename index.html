@@ -1324,94 +1324,45 @@ function submitMgrTask(){
   closeModal();toast('✅ Manager task created');renderMgrBoard();
 }
 
+let _bugDate=new Date().toISOString().slice(0,10);
 function renderBugSummary(){
-  const r=S.user.role;
-  const canEdit=r==='scrum_master'||r==='developer'||r==='manager';
-  const targetDevs=r==='developer'?devs().filter(d=>d.id===S.user.id):devs();
-  // Totals across all devs
-  let gTotal=0,gResolved=0,gClosed=0,gYest=0;
-  targetDevs.forEach(dev=>{
-    const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
-    gTotal+=bc.total;gResolved+=bc.resolved;gClosed+=bc.closed;
-    if(bc.yesterday_remaining!=null)gYest+=bc.yesterday_remaining;
-  });
-  const gRemaining=Math.max(0,gTotal-gResolved);
-  const hasYest=targetDevs.some(d=>(S.bugCounts[d.id]||{}).yesterday_remaining!=null);
-  const diff=gRemaining-gYest;
-  const diffTag=hasYest?`<div style="margin-top:6px;font-size:11px;font-weight:700;color:${diff<0?'#16a34a':diff>0?'#ef4444':'#64748b'};">${diff<0?'▼ '+Math.abs(diff)+' fixed since yesterday':diff>0?'▲ '+diff+' new since yesterday':'= No change'}</div>`:'';
-  const yesterdayTag=(label,yval)=>hasYest?`<div style="margin-top:4px;font-size:11px;color:#94a3b8;">Yesterday: <b>${yval}</b></div>`:'';
+  const allTasks=db.tasks();
+  const allDevs=devs();
+  const dateStr=new Date(_bugDate+'T12:00:00').toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  const rows=allDevs.map(dev=>{
+    const resolved=allTasks.filter(t=>
+      t.assignee_id===dev.id&&
+      t.type==='bug'&&
+      t.status==='done'&&
+      (t.updated_at||t.created_at||'').slice(0,10)===_bugDate
+    );
+    return{dev,count:resolved.length,tasks:resolved};
+  }).filter(r=>r.count>0);
+  const total=rows.reduce((s,r)=>s+r.count,0);
   document.getElementById('content').innerHTML=`
-    <div class="stats-row">
-      <div class="stat-card" style="border-left:4px solid #3b82f6">
-        <h4>Total Bugs</h4><div class="stat-num" style="color:#3b82f6">${gTotal}</div>
-        <div class="stat-sub">across team</div>
-        ${hasYest?`<div style="margin-top:4px;font-size:11px;color:#94a3b8;">Yesterday remaining: <b>${gYest}</b></div>`:''}
-      </div>
-      <div class="stat-card" style="border-left:4px solid #22c55e">
-        <h4>Resolved by Dev</h4><div class="stat-num" style="color:#22c55e">${gResolved}</div>
-        <div class="stat-sub">deployed to live</div>
-      </div>
-      <div class="stat-card" style="border-left:4px solid #0891b2">
-        <h4>Closed by Tester</h4><div class="stat-num" style="color:#0891b2">${gClosed}</div>
-        <div class="stat-sub">verified &amp; closed</div>
-      </div>
-      <div class="stat-card" style="border-left:4px solid #ef4444">
-        <h4>Remaining</h4><div class="stat-num" style="color:#ef4444">${gRemaining}</div>
-        <div class="stat-sub">with dev to fix</div>
-        ${diffTag}
-      </div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;flex-wrap:wrap;">
+      <div style="font-size:15px;font-weight:800;color:var(--text);">🐛 Bugs Resolved on</div>
+      <input type="date" value="${_bugDate}" onchange="_bugDate=this.value;renderBugSummary()" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;font-weight:700;outline:none;cursor:pointer;">
+      <div style="font-size:12px;color:var(--text2);">${dateStr}</div>
+      <div style="margin-left:auto;background:#dcfce7;color:#15803d;padding:6px 14px;border-radius:20px;font-size:13px;font-weight:800;">${total} bug${total!==1?'s':''} resolved</div>
     </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
-      <div style="font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);">Per Developer — click fields to update</div>
-      <button onclick="archiveClosedTasks()" style="padding:6px 12px;background:#fdf4ff;color:#9333ea;border:1.5px solid #e9d5ff;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;">🗂 Archive Closed Tasks</button>
-    </div>
-    ${targetDevs.map(dev=>{
-      const bc=S.bugCounts[dev.id]||{total:0,resolved:0,closed:0};
-      const rem=Math.max(0,bc.total-bc.resolved);
-      const pct=bc.total?Math.round(bc.resolved/bc.total*100):0;
-      const pcolor=pct===100?'#22c55e':pct>=60?'#3b82f6':'#f59e0b';
-      const devCanEdit=canEdit||(r==='developer'&&dev.id===S.user.id);
-      return`<div style="background:#fff;border-radius:12px;padding:16px 20px;border:1.5px solid var(--border);margin-bottom:12px;">
-        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
-          <div class="uav" style="width:36px;height:36px;font-size:13px;background:${dev.color}">${av(dev)}</div>
-          <div style="flex:1;">
-            <div style="font-size:14px;font-weight:800;">${dev.name}</div>
-            <div style="height:5px;background:#e2e8f0;border-radius:3px;margin-top:6px;overflow:hidden;">
-              <div style="height:100%;width:${pct}%;background:${pcolor};border-radius:3px;transition:width .3s;"></div>
+    ${rows.length===0
+      ?`<div style="text-align:center;padding:60px 20px;color:var(--text2);font-size:14px;">No bugs resolved on this date</div>`
+      :`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;">
+        ${rows.map(({dev,count,tasks})=>`
+          <div style="background:#fff;border-radius:12px;padding:18px 20px;border:1.5px solid var(--border);border-top:4px solid ${dev.color};">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+              <div class="uav" style="width:34px;height:34px;font-size:12px;background:${dev.color}">${av(dev)}</div>
+              <div style="font-size:13px;font-weight:800;">${dev.name.split(' ')[0]}</div>
             </div>
-          </div>
-          <span style="font-size:12px;color:var(--text2);white-space:nowrap;">${pct}% resolved</span>
-        </div>
-        <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;align-items:end;">
-          <div>
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Total bugs</div>
-            ${devCanEdit?`<input type="number" min="0" value="${bc.total}" onchange="saveBugCount('${dev.id}','total',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:18px;font-weight:800;text-align:center;color:#3b82f6;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'">`
-            :`<div style="font-size:18px;font-weight:800;color:#3b82f6;padding:7px 0;">${bc.total}</div>`}
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Resolved by dev</div>
-            ${devCanEdit?`<input type="number" min="0" value="${bc.resolved}" onchange="saveBugCount('${dev.id}','resolved',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:18px;font-weight:800;text-align:center;color:#22c55e;outline:none;" onfocus="this.style.borderColor='#22c55e'" onblur="this.style.borderColor='var(--border)'">`
-            :`<div style="font-size:18px;font-weight:800;color:#22c55e;padding:7px 0;">${bc.resolved}</div>`}
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Closed by tester</div>
-            ${devCanEdit?`<input type="number" min="0" value="${bc.closed}" onchange="saveBugCount('${dev.id}','closed',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px;font-size:18px;font-weight:800;text-align:center;color:#0891b2;outline:none;" onfocus="this.style.borderColor='#0891b2'" onblur="this.style.borderColor='var(--border)'">`
-            :`<div style="font-size:18px;font-weight:800;color:#0891b2;padding:7px 0;">${bc.closed}</div>`}
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Remaining</div>
-            <div id="rem-${dev.id}" style="font-size:18px;font-weight:800;padding:7px 0;color:${rem>0?'#ef4444':'#22c55e'};">${rem}</div>
-          </div>
-          <div>
-            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;color:var(--text2);margin-bottom:5px;">Yesterday</div>
-            <div style="font-size:18px;font-weight:800;padding:7px 0;color:var(--text2);">${bc.yesterday_remaining!=null?bc.yesterday_remaining:'—'}</div>
-            <div style="font-size:9px;color:var(--text2);">end of day</div>
-          </div>
-        </div>
-        ${(bc.yesterday_remaining!=null&&rem!==bc.yesterday_remaining)?`<div style="margin-top:8px;font-size:11px;padding:5px 10px;border-radius:6px;background:${rem<bc.yesterday_remaining?'#dcfce7':'#fee2e2'};color:${rem<bc.yesterday_remaining?'#16a34a':'#ef4444'};font-weight:700;">${rem<bc.yesterday_remaining?'✅ Fixed '+(bc.yesterday_remaining-rem)+' bug(s) since yesterday':'⚠️ '+(rem-bc.yesterday_remaining)+' new bug(s) since yesterday'}</div>`:''}
-        ${bc.notes!==undefined?`<div style="margin-top:10px;"><input type="text" placeholder="Add notes…" value="${bc.notes||''}" onchange="saveBugCount('${dev.id}','notes',this.value)" style="width:100%;border:1.5px solid var(--border);border-radius:8px;padding:7px 10px;font-size:12px;outline:none;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--border)'"></div>`:''}
-      </div>`;
-    }).join('')}`;
+            <div style="font-size:36px;font-weight:900;color:#22c55e;line-height:1;">${count}</div>
+            <div style="font-size:11px;color:var(--text2);margin-top:4px;">bug${count!==1?'s':''} resolved</div>
+            <div style="margin-top:10px;display:flex;flex-direction:column;gap:4px;">
+              ${tasks.map(t=>`<div style="font-size:10px;color:var(--text2);background:#f8fafc;padding:4px 8px;border-radius:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${t.title}">🐛 ${t.title}</div>`).join('')}
+            </div>
+          </div>`).join('')}
+      </div>`
+    }\`;
 }
 
 // ── TABLE VIEW ───────────────────────────────────────────────────
